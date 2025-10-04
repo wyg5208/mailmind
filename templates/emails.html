@@ -1695,26 +1695,32 @@ class PerformanceEmailManager {
     }
     
     enableVirtualScroll(container) {
-        // 为现有邮件列表启用虚拟滚动
+        // 提取邮件数据
         const emailItems = Array.from(container.querySelectorAll('.email-item-compact'));
         const emailData = emailItems.map(item => this.extractEmailData(item));
         
-        if (emailData.length > 0) {
-            // 清空容器并创建虚拟滚动
-            container.innerHTML = '<div id="virtualScrollContainer" style="height: 600px;"></div>';
-            const virtualContainer = container.querySelector('#virtualScrollContainer');
-            
-            emailVirtualList = new EmailVirtualList({
-                container: virtualContainer,
-                data: emailData,
-                itemHeight: PERFORMANCE_CONFIG.itemHeight,
-                onEmailClick: (email) => showEmailModal(email.id),
-                onEmailDelete: (email) => this.handleEmailDelete(email.id),
-                renderItem: this.renderVirtualEmailItem.bind(this)
-            });
-            
-            console.log('虚拟滚动已启用，邮件数量:', emailData.length);
-        }
+        if (emailData.length === 0) return;
+        
+        // 对于支持展开/收起的邮件列表，使用动态高度渲染而不是虚拟滚动
+        // 虚拟滚动不适合动态高度的内容，会导致遮挡问题
+        console.log('使用动态高度渲染模式，邮件数量:', emailData.length);
+        
+        // 清空容器
+        container.innerHTML = '';
+        
+        // 渲染所有邮件项
+        const fragment = document.createDocumentFragment();
+        emailData.forEach((email, index) => {
+            const itemHTML = this.renderVirtualEmailItem(email, index);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = itemHTML;
+            const emailElement = tempDiv.firstElementChild;
+            fragment.appendChild(emailElement);
+        });
+        
+        container.appendChild(fragment);
+        
+        console.log('动态高度邮件列表渲染完成');
     }
     
     enableSmartPagination() {
@@ -1748,48 +1754,265 @@ class PerformanceEmailManager {
         // 从DOM元素提取邮件数据
         const id = emailElement.dataset.emailId || emailElement.querySelector('[data-email-id]')?.dataset.emailId;
         const subject = emailElement.querySelector('.email-subject-compact')?.textContent?.trim();
-        const sender = emailElement.querySelector('.text-muted')?.textContent?.match(/发件人：([^•]+)/)?.[1]?.trim();
-        const date = emailElement.querySelector('.text-muted')?.textContent?.match(/时间：(.+)$/)?.[1]?.trim();
-        const summary = emailElement.querySelector('.email-summary')?.textContent?.trim();
+        const subjectElement = emailElement.querySelector('.email-subject-compact');
+        const originalTitle = subjectElement?.getAttribute('data-original-title') || subject;
+        
+        // 提取发件人信息
+        const senderDisplay = emailElement.querySelector('.sender-display');
+        let sender = '未知发送者';
+        if (senderDisplay) {
+            const senderText = senderDisplay.textContent;
+            // 尝试从 "姓名 <邮箱>" 格式提取
+            const senderMatch = senderText.match(/(.+?)\s*<(.+?)>/);
+            if (senderMatch) {
+                sender = `${senderMatch[1].trim()} <${senderMatch[2].trim()}>`;
+            } else {
+                sender = senderText.replace(/^(原始发件人:|转发者:)/g, '').trim();
+            }
+        }
+        
+        // 提取日期
+        const dateElement = emailElement.querySelector('.email-meta-compact .text-muted');
+        const date = dateElement?.textContent?.trim() || new Date().toISOString();
+        
+        // 提取摘要
+        const summaryElement = emailElement.querySelector('.email-content-expanded .email-summary');
+        const summary = summaryElement?.textContent?.trim() || '';
+        
+        // 提取重要性
+        let importance = 1;
+        if (emailElement.querySelector('.importance-badge.bg-danger')) {
+            importance = 3;
+        } else if (emailElement.querySelector('.importance-badge.bg-warning')) {
+            importance = 2;
+        }
+        
+        // 提取分类
+        const categoryBadge = emailElement.querySelector('.category-badge');
+        let category = null;
+        if (categoryBadge) {
+            const href = categoryBadge.getAttribute('href');
+            const match = href?.match(/category=([^&]+)/);
+            if (match) {
+                category = match[1];
+            }
+        }
+        
+        // 提取提供商
+        const providerBadge = emailElement.querySelector('.badge.bg-light.text-dark');
+        const provider = providerBadge?.textContent?.trim().toLowerCase() || null;
+        
+        // 检查是否转发
+        const forwardBadge = emailElement.querySelector('.badge.bg-info');
+        const is_forwarded = forwardBadge?.textContent?.includes('转发') || false;
+        
+        // 提取账户邮箱
+        const accountEmailElement = emailElement.querySelector('.fa-at');
+        const account_email = accountEmailElement?.nextSibling?.textContent?.trim() || null;
+        
+        // 检查处理状态
+        const processed = emailElement.classList.contains('border-success') || 
+                         emailElement.querySelector('.badge-success') ? true : false;
         
         return {
             id: parseInt(id),
-            subject: subject || '无主题',
-            sender: sender || '未知发送者',
-            date: date || new Date().toISOString(),
-            ai_summary: summary || '',
-            processed: emailElement.querySelector('.badge-success') ? true : false
+            subject: originalTitle || subject || '无主题',
+            sender: sender,
+            date: date,
+            ai_summary: summary,
+            summary: summary,
+            importance: importance,
+            category: category,
+            provider: provider,
+            is_forwarded: is_forwarded,
+            account_email: account_email,
+            processed: processed
         };
     }
     
+    formatSenderCompact(senderStr) {
+        /**
+         * 紧凑格式的发件人显示（用于列表视图）
+         * @param {string} senderStr - 原始发件人字符串
+         * @returns {string} 格式化后的发件人信息
+         */
+        if (!senderStr) {
+            return '未知发件人';
+        }
+        
+        senderStr = senderStr.trim();
+        
+        // 格式1: 姓名 <邮箱> 
+        const nameEmailMatch = senderStr.match(/^(.*?)\s*<(.+?)>$/);
+        if (nameEmailMatch) {
+            let name = nameEmailMatch[1].trim().replace(/^["']|["']$/g, ''); // 去除引号
+            const email = nameEmailMatch[2].trim();
+            
+            // 如果姓名为空，使用邮箱地址的用户名部分
+            if (!name) {
+                name = email.split('@')[0];
+            }
+            
+            return `<span class="fw-bold">${this.escapeHtml(name)}</span>`;
+        }
+        
+        // 格式2: 纯邮箱地址
+        if (senderStr.includes('@')) {
+            const username = senderStr.split('@')[0];
+            return `<span class="fw-bold">${this.escapeHtml(username)}</span>`;
+        }
+        
+        // 格式3: 纯姓名
+        return `<span class="fw-bold">${this.escapeHtml(senderStr)}</span>`;
+    }
+    
+    escapeHtml(text) {
+        /**
+         * HTML转义函数，防止XSS攻击
+         */
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     renderVirtualEmailItem(email, index) {
-        const date = new Date(email.date).toLocaleString('zh-CN');
-        const processedBadge = email.processed 
-            ? '<span class="badge bg-success">已处理</span>'
-            : '<span class="badge bg-warning">未处理</span>';
+        const date = email.date ? email.date.replace('T', ' ').substring(0, 19) : '';
+        const borderClass = email.processed ? 'border-success' : 'border-warning';
+        
+        // 重要性标签
+        let importanceBadge = '';
+        if (email.importance >= 3) {
+            importanceBadge = '<span class="badge bg-danger importance-badge me-2" style="font-size: 0.6rem;">🔴 重要</span>';
+        } else if (email.importance == 2) {
+            importanceBadge = '<span class="badge bg-warning importance-badge me-2" style="font-size: 0.6rem;">🟡 中等</span>';
+        }
+        
+        // 分类标签
+        const categoryConfig = {
+            'work': {'icon': '💼', 'color': 'primary', 'name': '工作'},
+            'finance': {'icon': '💰', 'color': 'success', 'name': '财务'},
+            'social': {'icon': '👥', 'color': 'info', 'name': '社交'},
+            'shopping': {'icon': '🛒', 'color': 'warning', 'name': '购物'},
+            'news': {'icon': '📰', 'color': 'secondary', 'name': '资讯'},
+            'education': {'icon': '🎓', 'color': 'primary', 'name': '教育'},
+            'travel': {'icon': '✈️', 'color': 'info', 'name': '旅行'},
+            'health': {'icon': '🏥', 'color': 'danger', 'name': '健康'},
+            'system': {'icon': '🔔', 'color': 'dark', 'name': '系统'},
+            'advertising': {'icon': '📢', 'color': 'info', 'name': '广告'},
+            'spam': {'icon': '🗑️', 'color': 'danger', 'name': '垃圾'},
+            'general': {'icon': '📁', 'color': 'light text-dark', 'name': '其他'}
+        };
+        let categoryBadge = '';
+        if (email.category) {
+            const cat = categoryConfig[email.category] || categoryConfig['general'];
+            categoryBadge = `<a href="?category=${email.category}" 
+                               class="badge bg-${cat.color} category-badge me-2 text-decoration-none" 
+                               style="font-size: 0.65rem; cursor: pointer;" 
+                               title="分类: ${cat.name}（点击筛选同类邮件）"
+                               onclick="event.stopPropagation();">
+                                ${cat.icon}
+                            </a>`;
+        }
+        
+        // 提供商标签
+        let providerBadge = '';
+        if (email.provider) {
+            providerBadge = `<span class="badge bg-light text-dark me-2 d-none d-sm-inline" style="font-size: 0.6rem;">${email.provider.toUpperCase()}</span>`;
+        }
+        
+        // 摘要内容
+        const summary = email.ai_summary || email.summary || '暂无摘要';
+        
+        // 发件人信息（用于展开区域）
+        let senderInfo = '';
+        if (email.is_forwarded) {
+            senderInfo = `<i class="fas fa-share text-primary me-1" title="转发邮件"></i>
+                         <span class="badge bg-info me-2">转发</span>
+                         <i class="fas fa-user me-1"></i>
+                         <span class="sender-display">
+                             <strong>转发者:</strong> ${this.escapeHtml(email.sender)}
+                         </span>`;
+        } else {
+            const senderParts = email.sender && email.sender.includes('<') ? email.sender.split('<') : [];
+            if (senderParts.length === 2) {
+                const name = senderParts[0].trim().replace(/^["']|["']$/g, '');
+                const emailAddr = senderParts[1].replace('>', '');
+                senderInfo = `<i class="fas fa-user me-1"></i>
+                             <span class="sender-display">
+                                 <span class="fw-bold">${this.escapeHtml(name)}</span>
+                                 <span class="text-muted ms-1">&lt;${this.escapeHtml(emailAddr)}&gt;</span>
+                             </span>`;
+            } else if (email.sender && email.sender.includes('@')) {
+                const username = email.sender.split('@')[0];
+                senderInfo = `<i class="fas fa-user me-1"></i>
+                             <span class="sender-display">
+                                 <span class="fw-bold">${this.escapeHtml(username)}</span>
+                                 <span class="text-muted ms-1">&lt;${this.escapeHtml(email.sender)}&gt;</span>
+                             </span>`;
+            } else {
+                senderInfo = `<i class="fas fa-user me-1"></i>
+                             <span class="sender-display">
+                                 <span class="fw-bold">${this.escapeHtml(email.sender || '未知发件人')}</span>
+                             </span>`;
+            }
+        }
+        
+        if (email.account_email) {
+            senderInfo += `<i class="fas fa-at ms-2 me-1"></i>${this.escapeHtml(email.account_email)}`;
+        }
         
         return `
-            <div class="email-item-compact border rounded mb-2" data-email-id="${email.id}">
-                <div class="email-header-compact p-3" onclick="showEmailModal(${email.id})">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <h6 class="email-subject-compact mb-1">${email.subject}</h6>
-                            <div class="text-muted small">
-                                发件人：${this.formatSenderCompact(email.sender)} • 时间：${date}
+            <div class="email-item-compact card border-start ${borderClass} border-2 mb-1" data-email-id="${email.id}">
+                <!-- 紧凑标题行（可点击展开/收起） -->
+                <div class="email-header-compact card-body py-2 px-3 cursor-pointer" onclick="toggleEmailExpand(this)">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="email-title-section flex-grow-1 me-2" style="min-width: 0;">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-chevron-right expand-icon me-2 text-muted" style="font-size: 0.7rem; transition: transform 0.2s;"></i>
+                                ${importanceBadge}
+                                ${categoryBadge}
+                                <span class="email-subject-compact text-truncate" data-original-title="${this.escapeHtml(email.subject)}">${this.escapeHtml(email.subject || '无主题')}</span>
                             </div>
-                            ${email.ai_summary ? `
-                                <div class="email-summary text-muted small mt-1">
-                                    <i class="fas fa-robot me-1"></i>
-                                    ${email.ai_summary.substring(0, 100)}${email.ai_summary.length > 100 ? '...' : ''}
-                                </div>
-                            ` : ''}
                         </div>
-                        <div class="d-flex align-items-center">
-                            ${processedBadge}
-                            <button class="btn btn-sm btn-outline-warning ms-2" 
-                                    onclick="event.stopPropagation(); softDeleteEmail(${email.id})" 
-                                    title="删除邮件">
-                                <i class="fas fa-trash"></i>
+                        <div class="email-meta-compact d-flex align-items-center flex-shrink-0">
+                            <small class="text-muted me-2 d-none d-md-inline">${date}</small>
+                            ${providerBadge}
+                            <button class="btn btn-sm btn-outline-info translate-title-btn" data-email-id="${email.id}" data-translated="false" title="翻译标题" onclick="event.stopPropagation(); translateEmailTitle('${email.id}', this)" style="font-size: 0.6rem; padding: 0.1rem 0.3rem;">
+                                <i class="fas fa-language"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 展开内容区域（默认收起） -->
+                <div class="email-content-expanded card-body pt-0 pb-2 px-3" style="display: none;">
+                    <div class="border-top pt-2">
+                        <p class="email-summary text-muted mb-2" style="font-size: 0.9rem;">
+                            ${this.escapeHtml(summary)}
+                        </p>
+                        <div class="email-meta">
+                            <small class="text-muted">
+                                ${senderInfo}
+                            </small>
+                        </div>
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <button class="btn btn-outline-primary btn-sm" data-email-id="${email.id}" onclick="viewEmailDetail('${email.id}')">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" data-email-id="${email.id}" onclick="replyToEmail('${email.id}')">
+                                <i class="fas fa-reply me-1"></i>回复
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" data-email-id="${email.id}" onclick="forwardEmail('${email.id}')">
+                                <i class="fas fa-share me-1"></i>转发
+                            </button>
+                            ${!email.processed ? `
+                            <button class="btn btn-outline-success btn-sm" data-email-id="${email.id}" onclick="processEmail('${email.id}')">
+                                <i class="fas fa-play me-1"></i>处理
+                            </button>
+                            ` : ''}
+                            <button class="btn btn-outline-warning btn-sm" data-email-id="${email.id}" onclick="softDeleteEmail('${email.id}')">
+                                <i class="fas fa-trash me-1"></i>删除
                             </button>
                         </div>
                     </div>

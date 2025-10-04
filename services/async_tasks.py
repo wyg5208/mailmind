@@ -317,3 +317,4 @@ def generate_digest_async(self, emails: list, user_id: int):
         logger.error(f"[Celery] 简报生成失败: {e}", exc_info=True)
         return {'success': False, 'error': str(e)}
 
+

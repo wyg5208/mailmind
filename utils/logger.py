@@ -51,26 +51,25 @@ def get_shared_file_handler():
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
             
-            # 基于本地时间在午夜轮转，保留最近30天
-            _file_handler = logging.handlers.TimedRotatingFileHandler(
-                filename=str(Config.LOG_FILE),
-                when='midnight',
-                interval=1,
-                backupCount=30,
-                encoding='utf-8',
-                utc=False
-            )
-
-            # 自定义命名：email_digest_YYYY_MM_DD.log（将默认的 .YYYY-MM-DD 改写为 _YYYY_MM_DD.log）
-            _file_handler.suffix = "%Y-%m-%d"
-            base_name = Config.LOG_FILE.stem  # e.g. 'email_digest'
-            def _namer(default_name: str) -> str:
-                # default_name 示例：logs/email_digest.log.2025-10-01
-                directory = os.path.dirname(default_name)
-                date_part = default_name.rsplit('.', 1)[-1].replace('-', '_')
-                return os.path.join(directory, f"{base_name}_{date_part}.log")
-            _file_handler.namer = _namer
-
+            # 使用WatchedFileHandler替代TimedRotatingFileHandler
+            # 避免多进程环境下的文件轮转冲突(Windows PermissionError)
+            # 日志轮转由外部工具(如logrotate或任务计划)处理
+            if sys.platform == 'win32':
+                # Windows下使用普通FileHandler,避免多进程轮转冲突
+                # 可以通过任务计划器配合PowerShell脚本实现日志轮转
+                _file_handler = logging.FileHandler(
+                    filename=str(Config.LOG_FILE),
+                    encoding='utf-8',
+                    mode='a'  # 追加模式
+                )
+            else:
+                # Linux/Unix下使用WatchedFileHandler,支持外部日志轮转工具
+                _file_handler = logging.handlers.WatchedFileHandler(
+                    filename=str(Config.LOG_FILE),
+                    encoding='utf-8',
+                    mode='a'
+                )
+            
             _file_handler.setLevel(logging.DEBUG)
             _file_handler.setFormatter(file_formatter)
             
