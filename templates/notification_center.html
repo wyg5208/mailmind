@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}通知中心 - AI邮件简报系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-center {
+        padding: 2rem 0;
+    }
+    
+    .notification-center-header {
+        margin-bottom: 2rem;
+    }
+    
+    .notification-center-title {
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+    
+    .notification-center-subtitle {
+        color: #718096;
+        font-size: 0.95rem;
+    }
+    
+    .notification-filters {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid #e2e8f0;
+        background: white;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+    
+    .filter-btn:hover {
+        border-color: #667eea;
+        color: #667eea;
+    }
+    
+    .filter-btn.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+    
+    .notification-card {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s;
+        border-left: 4px solid transparent;
+    }
+    
+    .notification-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    .notification-card.unread {
+        border-left-color: #2196F3;
+        background: linear-gradient(to right, #e3f2fd 0%, white 100%);
+    }
+    
+    .notification-card.info { border-left-color: #2196F3; }
+    .notification-card.success { border-left-color: #4CAF50; }
+    .notification-card.warning { border-left-color: #FF9800; }
+    .notification-card.error { border-left-color: #F44336; }
+    
+    .notification-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 0.75rem;
+    }
+    
+    .notification-card-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #2d3748;
+        margin-bottom: 0.25rem;
+    }
+    
+    .notification-card-time {
+        color: #a0aec0;
+        font-size: 0.85rem;
+    }
+    
+    .notification-card-message {
+        color: #4a5568;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+    }
+    
+    .notification-card-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        color: #cbd5e0;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state-text {
+        color: #718096;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notification-center">
+    <div class="notification-center-header">
+        <h1 class="notification-center-title">
+            <i class="fas fa-bell me-2"></i>通知中心
+        </h1>
+        <p class="notification-center-subtitle">
+            查看和管理您的所有系统通知
+        </p>
+    </div>
+    
+    <div class="notification-filters">
+        <button class="filter-btn active" data-filter="all">
+            <i class="fas fa-list me-1"></i>全部通知
+        </button>
+        <button class="filter-btn" data-filter="unread">
+            <i class="fas fa-envelope me-1"></i>未读通知
+        </button>
+        <button class="filter-btn" data-filter="info">
+            <i class="fas fa-info-circle me-1"></i>信息
+        </button>
+        <button class="filter-btn" data-filter="success">
+            <i class="fas fa-check-circle me-1"></i>成功
+        </button>
+        <button class="filter-btn" data-filter="warning">
+            <i class="fas fa-exclamation-triangle me-1"></i>警告
+        </button>
+        <button class="filter-btn" data-filter="error">
+            <i class="fas fa-times-circle me-1"></i>错误
+        </button>
+        
+        <div class="ms-auto">
+            <button class="btn btn-outline-primary btn-sm" onclick="markAllAsRead()">
+                <i class="fas fa-check-double me-1"></i>全部标记为已读
+            </button>
+        </div>
+    </div>
+    
+    <div id="notifications-container">
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3 text-muted">加载通知...</p>
+        </div>
+    </div>
+    
+    <nav aria-label="通知分页" id="pagination-container" class="mt-4"></nav>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentFilter = 'all';
+let currentPage = 1;
+
+// 页面加载时获取通知
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotifications();
+    
+    // 筛选按钮点击事件
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentFilter = this.dataset.filter;
+            currentPage = 1;
+            loadNotifications();
+        });
+    });
+});
+
+// 加载通知
+async function loadNotifications() {
+    const container = document.getElementById('notifications-container');
+    
+    try {
+        let url = `/api/notifications?page=${currentPage}&per_page=10`;
+        if (currentFilter === 'unread') {
+            url += '&unread_only=true';
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            renderNotifications(data.notifications);
+            renderPagination(data.pagination);
+        } else {
+            showError('加载失败');
+        }
+    } catch (error) {
+        console.error('加载通知失败:', error);
+        showError('网络错误');
+    }
+}
+
+// 渲染通知列表
+function renderNotifications(notifications) {
+    const container = document.getElementById('notifications-container');
+    
+    // 应用前端筛选（类型筛选）
+    let filtered = notifications;
+    if (currentFilter !== 'all' && currentFilter !== 'unread') {
+        filtered = notifications.filter(n => n.type === currentFilter);
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-bell-slash"></i>
+                </div>
+                <div class="empty-state-text">暂无通知</div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    filtered.forEach(notif => {
+        const isUnread = !notif.is_read;
+        const iconClass = getNotificationIcon(notif.type);
+        
+        html += `
+            <div class="notification-card ${notif.type} ${isUnread ? 'unread' : ''}" data-id="${notif.id}">
+                <div class="notification-card-header">
+                    <div>
+                        <div class="notification-card-title">
+                            <i class="fas ${iconClass} me-2"></i>
+                            ${escapeHtml(notif.title)}
+                            ${isUnread ? '<span class="badge bg-primary ms-2">未读</span>' : ''}
+                        </div>
+                        <div class="notification-card-time">${formatTime(notif.created_at)}</div>
+                    </div>
+                </div>
+                <div class="notification-card-message">
+                    ${escapeHtml(notif.message)}
+                </div>
+                <div class="notification-card-actions">
+                    ${isUnread ? `
+                        <button class="btn btn-sm btn-outline-primary" onclick="markAsRead(${notif.id})">
+                            <i class="fas fa-check me-1"></i>标记已读
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteNotification(${notif.id})">
+                        <i class="fas fa-trash me-1"></i>删除
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// 渲染分页
+function renderPagination(pagination) {
+    const container = document.getElementById('pagination-container');
+    
+    if (pagination.pages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = '<ul class="pagination justify-content-center">';
+    
+    // 上一页
+    html += `
+        <li class="page-item ${pagination.page === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${pagination.page - 1}); return false;">上一页</a>
+        </li>
+    `;
+    
+    // 页码
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === 1 || i === pagination.pages || (i >= pagination.page - 2 && i <= pagination.page + 2)) {
+            html += `
+                <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        } else if (i === pagination.page - 3 || i === pagination.page + 3) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // 下一页
+    html += `
+        <li class="page-item ${pagination.page === pagination.pages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${pagination.page + 1}); return false;">下一页</a>
+        </li>
+    `;
+    
+    html += '</ul>';
+    container.innerHTML = html;
+}
+
+// 跳转到指定页
+function goToPage(page) {
+    currentPage = page;
+    loadNotifications();
+    window.scrollTo(0, 0);
+}
+
+// 标记为已读
+async function markAsRead(notificationId) {
+    try {
+        const response = await fetch(`/api/notifications/${notificationId}/read`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadNotifications();
+            if (typeof notificationSystem !== 'undefined') {
+                notificationSystem.updateUnreadCount();
+            }
+        }
+    } catch (error) {
+        console.error('标记失败:', error);
+        alert('操作失败，请稍后重试');
+    }
+}
+
+// 标记所有为已读
+async function markAllAsRead() {
+    if (!confirm('确定要标记所有通知为已读吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/notifications/mark-all-read', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadNotifications();
+            if (typeof notificationSystem !== 'undefined') {
+                notificationSystem.updateUnreadCount();
+            }
+            showAlert('success', '所有通知已标记为已读');
+        }
+    } catch (error) {
+        console.error('操作失败:', error);
+        alert('操作失败，请稍后重试');
+    }
+}
+
+// 删除通知
+async function deleteNotification(notificationId) {
+    if (!confirm('确定要删除这条通知吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/notifications/${notificationId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadNotifications();
+            if (typeof notificationSystem !== 'undefined') {
+                notificationSystem.updateUnreadCount();
+            }
+        }
+    } catch (error) {
+        console.error('删除失败:', error);
+        alert('删除失败，请稍后重试');
+    }
+}
+
+// 工具函数
+function getNotificationIcon(type) {
+    const icons = {
+        'info': 'fa-info-circle',
+        'success': 'fa-check-circle',
+        'warning': 'fa-exclamation-triangle',
+        'error': 'fa-times-circle'
+    };
+    return icons[type] || 'fa-bell';
+}
+
+function formatTime(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) {
+        return '刚刚';
+    } else if (diffMins < 60) {
+        return `${diffMins}分钟前`;
+    } else if (diffHours < 24) {
+        return `${diffHours}小时前`;
+    } else if (diffDays < 7) {
+        return `${diffDays}天前`;
+    } else {
+        return date.toLocaleString('zh-CN');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showError(message) {
+    document.getElementById('notifications-container').innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${message}
+        </div>
+    `;
+}
+</script>
+{% endblock %}
+

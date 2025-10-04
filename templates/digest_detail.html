@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}{{ digest.title or '简报详情' }} - AI邮件简报系统{% endblock %}
+
+{% block content %}
+<!-- 返回按钮 -->
+<div class="row mb-3">
+    <div class="col-12">
+        <a href="{{ url_for('digests_history') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回简报历史
+        </a>
+    </div>
+</div>
+
+<!-- 简报详情 -->
+<div class="row">
+    <div class="col-12">
+        <div class="digest-detail-card card border-0 shadow-sm">
+            <!-- 简报头部 -->
+            <div class="card-header bg-gradient-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title mb-1">
+                            <i class="fas fa-newspaper me-2"></i>{{ digest.title or '邮件简报' }}
+                        </h3>
+                        <p class="card-subtitle mb-0 opacity-75">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ digest.date[:10] if digest.date else '未知日期' }}
+                            <span class="ms-4">
+                                <i class="fas fa-clock me-1"></i>
+                                生成时间: <span data-utc-time="{{ digest.created_at[:19] if digest.created_at else '' }}">
+                                    {{ digest.created_at[:19].replace('T', ' ') if digest.created_at else '未知时间' }}
+                                </span>
+                            </span>
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-light text-primary fs-5 px-3 py-2">
+                            <i class="fas fa-envelope me-1"></i>{{ digest.email_count or 0 }} 封邮件
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- 简报摘要 -->
+                {% if digest.summary %}
+                <div class="alert alert-info border-0 bg-info bg-opacity-10 mb-4">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-lightbulb text-info"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="alert-heading mb-2">AI智能摘要</h6>
+                            <p class="mb-0">{{ digest.summary }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 统计信息 -->
+                {% if digest.content and digest.content.stats %}
+                <div class="stats-section mb-4">
+                    <h5 class="section-title mb-3">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>统计信息
+                    </h5>
+                    
+                    <div class="row g-3">
+                        {% if digest.content.stats.categories %}
+                        <div class="col-md-6">
+                            <div class="stats-card card border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-tags me-1"></i>邮件分类
+                                    </h6>
+                                    <div class="categories-stats">
+                                        {% for category, count in digest.content.stats.categories.items() %}
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-primary">{{ category }}</span>
+                                            <span class="fw-bold">{{ count }} 封</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if digest.content.stats.providers %}
+                        <div class="col-md-6">
+                            <div class="stats-card card border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-server me-1"></i>邮件服务商
+                                    </h6>
+                                    <div class="providers-stats">
+                                        {% for provider, count in digest.content.stats.providers.items() %}
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-info">{{ provider.upper() }}</span>
+                                            <span class="fw-bold">{{ count }} 封</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if digest.content.stats.time_distribution %}
+                        <div class="col-12">
+                            <div class="stats-card card border-0 bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-clock me-1"></i>时间分布
+                                    </h6>
+                                    <div class="time-distribution">
+                                        {% for time_slot, count in digest.content.stats.time_distribution.items() %}
+                                        <span class="badge bg-secondary me-2 mb-2">{{ time_slot }}: {{ count }}封</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 邮件详细列表 -->
+                {% if digest.content and digest.content.categories %}
+                <div class="emails-section">
+                    <h5 class="section-title mb-3">
+                        <i class="fas fa-envelope-open text-primary me-2"></i>邮件详情
+                    </h5>
+                    
+                    {% for category, emails in digest.content.categories.items() %}
+                        {% if emails %}
+                        <div class="category-section mb-4">
+                            <h6 class="category-title">
+                                <i class="fas fa-{{ 'exclamation-triangle text-danger' if category == 'important' else 'briefcase text-primary' if category == 'work' else 'dollar-sign text-success' if category == 'finance' else 'users text-info' if category == 'social' else 'shopping-cart text-warning' if category == 'shopping' else 'newspaper text-secondary' if category == 'news' else 'folder-open text-muted' }} me-2"></i>
+                                {{ {'important': '重要邮件', 'work': '工作邮件', 'finance': '财务邮件', 'social': '社交邮件', 'shopping': '购物邮件', 'news': '资讯邮件', 'general': '其他邮件'}[category] }}
+                                <span class="badge bg-secondary ms-2">{{ emails|length }}</span>
+                            </h6>
+                            
+                            <div class="emails-list">
+                                {% for email in emails %}
+                                <div class="email-item card border-start border-{{ 'danger' if category == 'important' else 'primary' if category == 'work' else 'success' if category == 'finance' else 'info' if category == 'social' else 'warning' if category == 'shopping' else 'secondary' if category == 'news' else 'muted' }} border-3 mb-3">
+                                    <div class="card-body">
+                                        <div class="row align-items-start">
+                                            <div class="col-md-8">
+                                                <h6 class="email-subject mb-2">
+                                                    {% if email.importance >= 3 %}
+                                                    <span class="badge bg-danger me-2">重要</span>
+                                                    {% elif email.importance == 2 %}
+                                                    <span class="badge bg-warning me-2">中等</span>
+                                                    {% endif %}
+                                                    {{ email.subject or '无主题' }}
+                                                </h6>
+                                                <p class="email-summary text-muted mb-2">{{ email.summary or '暂无摘要' }}</p>
+                                                <div class="email-meta">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-user me-1"></i>{{ email.sender_name or '未知发件人' }}
+                                                        {% if email.account_email %}
+                                                        <i class="fas fa-at ms-2 me-1"></i>{{ email.account_email }}
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 text-md-end">
+                                                <div class="email-time">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-clock me-1"></i>{{ email.time or '未知时间' }}
+                                                    </small>
+                                                </div>
+                                                {% if email.provider %}
+                                                <div class="mt-2">
+                                                    <span class="badge bg-light text-dark">
+                                                        <i class="fas fa-envelope me-1"></i>{{ email.provider.upper() }}
+                                                    </span>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% elif digest.content and digest.content.emails %}
+                <!-- 简化的邮件列表（如果没有分类） -->
+                <div class="emails-section">
+                    <h5 class="section-title mb-3">
+                        <i class="fas fa-envelope-open text-primary me-2"></i>邮件列表
+                    </h5>
+                    
+                    <div class="emails-list">
+                        {% for email in digest.content.emails %}
+                        <div class="email-item card border-start border-primary border-3 mb-3">
+                            <div class="card-body">
+                                <div class="row align-items-start">
+                                    <div class="col-md-8">
+                                        <h6 class="email-subject mb-2">{{ email.subject or '无主题' }}</h6>
+                                        <p class="email-summary text-muted mb-2">{{ email.summary or '暂无摘要' }}</p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>{{ email.sender or '未知发件人' }}
+                                        </small>
+                                    </div>
+                                    <div class="col-md-4 text-md-end">
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock me-1"></i>{{ email.time or '未知时间' }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- 简报操作 -->
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        简报ID: {{ digest.id }}
+                    </small>
+                    <div>
+                        <button class="btn btn-outline-info btn-sm" onclick="exportDigest('{{ digest.id }}')">
+                            <i class="fas fa-download me-1"></i>导出简报
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm ms-2" onclick="deleteDigest('{{ digest.id }}')">
+                            <i class="fas fa-trash me-1"></i>删除简报
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 导出简报
+function exportDigest(digestId) {
+    showAlert('info', '简报导出功能开发中...');
+}
+
+// 转换时间显示为东八区时间
+function convertToChineseTime() {
+    const timeElement = document.querySelector('[data-utc-time]');
+    if (timeElement) {
+        const utcTimeStr = timeElement.getAttribute('data-utc-time');
+        try {
+            // 数据库中存储的是UTC时间，添加Z表示UTC
+            const utcTime = new Date(utcTimeStr + 'Z');
+            
+            const options = {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Shanghai'  // 东八区
+            };
+            
+            timeElement.textContent = utcTime.toLocaleString('zh-CN', options);
+        } catch (e) {
+            console.log('Time conversion failed:', e);
+        }
+    }
+}
+
+// 删除简报
+function deleteDigest(digestId) {
+    if (!confirm('确定要删除这份简报吗？此操作不可撤销。')) {
+        return;
+    }
+    
+    fetch(`/api/digests/${digestId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', '简报删除成功');
+            setTimeout(() => {
+                window.location.href = '{{ url_for("digests_history") }}';
+            }, 1000);
+        } else {
+            showAlert('danger', data.error || '删除失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting digest:', error);
+        showAlert('danger', '删除失败: ' + error.message);
+    });
+}
+
+// 页面加载时转换时间
+document.addEventListener('DOMContentLoaded', function() {
+    convertToChineseTime();
+});
+</script>
+{% endblock %}

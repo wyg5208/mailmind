@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI邮件简报系统{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Bootstrap 5 CSS (本地版本) -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Font Awesome (本地版本) -->
+    <link href="{{ url_for('static', filename='vendor/fontawesome/all.min.css') }}" rel="stylesheet">
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- 通知系统样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
+    <!-- 异步任务进度条样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/async_progress.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+                <i class="fas fa-envelope-open-text me-2"></i>
+                AI邮件简报
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                            <i class="fas fa-home me-1"></i>首页
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'emails' %}active{% endif %}" href="{{ url_for('emails') }}">
+                            <i class="fas fa-list me-1"></i>邮件列表
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'compose.compose_page' %}active{% endif %}" href="/compose">
+                            <i class="fas fa-edit me-1"></i>撰写邮件
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'digests_history' %}active{% endif %}" href="{{ url_for('digests_history') }}">
+                            <i class="fas fa-history me-1"></i>简报历史
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    {% if session.get('user_id') %}
+                    <li class="nav-item">
+                        <button id="trigger-btn" class="btn btn-outline-light btn-sm" onclick="triggerProcessing()">
+                            <i class="fas fa-play me-1"></i>实时收取
+                        </button>
+                    </li>
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user me-1"></i>{{ session.get('username', 'User') }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('profile') }}">
+                                <i class="fas fa-user-circle me-2"></i>个人资料
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('sent_emails') }}">
+                                <i class="fas fa-paper-plane me-2"></i>已发送
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('recycle_bin') }}">
+                                <i class="fas fa-trash-restore me-2"></i>回收站
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('settings') }}">
+                                <i class="fas fa-cog me-2"></i>设置
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="checkSystemHealth()">
+                                <i class="fas fa-plug me-2"></i>检测连接
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt me-2"></i>退出登录
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}">
+                            <i class="fas fa-sign-in-alt me-1"></i>登录
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}">
+                            <i class="fas fa-user-plus me-1"></i>注册
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <main class="main-content">
+        <div class="container">
+            <!-- 消息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="row">
+                        <div class="col-12">
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show" role="alert">
+                                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' if category == 'success' else 'info-circle' }} me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer bg-light mt-5">
+        <div class="container">
+            <div class="row py-4">
+                <div class="col-md-6">
+                    <h6 class="text-muted">AI邮件简报系统</h6>
+                    <p class="text-muted small mb-0">智能邮件收取与摘要生成</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted small mb-0">
+                        <i class="fas fa-clock me-1"></i>
+                        最后更新: <span id="last-update"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 加载指示器 -->
+    <div id="loading-overlay" class="loading-overlay d-none">
+        <div class="spinner-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">处理中...</span>
+            </div>
+            <p class="mt-3 text-muted">正在处理邮件，请稍候...</p>
+        </div>
+    </div>
+
+    <!-- 系统健康检查模态框 -->
+    <div class="modal fade" id="healthCheckModal" tabindex="-1" aria-labelledby="healthCheckModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="healthCheckModalLabel">
+                        <i class="fas fa-heartbeat me-2"></i>系统连接状态
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="healthCheckContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">检测中...</span>
+                        </div>
+                        <p class="mt-3">正在检测系统连接状态...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" onclick="refreshHealthCheck()">
+                        <i class="fas fa-sync me-1"></i>刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS (本地版本) -->
+    <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    
+    <!-- 通知系统JavaScript -->
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    
+    <!-- 异步任务监控JavaScript -->
+    <script src="{{ url_for('static', filename='js/async_task_monitor.js') }}"></script>
+    
+    <!-- 通用JavaScript -->
+    <script>
+        // 实时收取处理 - 支持Celery异步任务
+        function triggerProcessing() {
+            const button = document.getElementById('trigger-btn');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            
+            // 显示加载状态
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>收取中...';
+            loadingOverlay.classList.remove('d-none');
+            
+            fetch('/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 隐藏加载覆盖层
+                loadingOverlay.classList.add('d-none');
+                
+                if (data.success) {
+                    // 检查是否使用了Celery
+                    if (data.use_celery && data.task_id) {
+                        // 使用Celery任务监控
+                        showAlert('info', '邮件处理任务已提交到队列，正在后台处理...');
+                        
+                        // 创建任务监控器
+                        const monitor = new AsyncTaskMonitor(data.task_id, {
+                            interval: 1000, // 每秒轮询一次
+                            onSuccess: function(result) {
+                                console.log('任务完成:', result);
+                                showAlert('success', `邮件处理完成！成功处理 ${result.new_emails || 0} 封新邮件。`);
+                                
+                                // 检查新通知
+                                if (typeof notificationSystem !== 'undefined') {
+                                    notificationSystem.checkForNewNotifications();
+                                }
+                                
+                                // 2秒后刷新页面
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 2000);
+                            },
+                            onFailure: function(error) {
+                                console.error('任务失败:', error);
+                                showAlert('danger', '邮件处理失败: ' + error);
+                            }
+                        });
+                        
+                        // 启动监控
+                        monitor.start();
+                    } else {
+                        // 使用传统线程方式 (降级模式)
+                        showAlert('success', '邮件收取已启动（备用模式）！请稍后查看结果。');
+                        
+                        // 5秒后检查新通知
+                        setTimeout(() => {
+                            if (typeof notificationSystem !== 'undefined') {
+                                notificationSystem.checkForNewNotifications();
+                            }
+                        }, 5000);
+                        
+                        // 6秒后刷新页面
+                        setTimeout(() => {
+                            location.reload();
+                        }, 6000);
+                    }
+                } else {
+                    showAlert('danger', '收取失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                loadingOverlay.classList.add('d-none');
+                showAlert('danger', '请求失败: ' + error.message);
+                console.error('触发邮件处理失败:', error);
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-play me-1"></i>实时收取';
+            });
+        }
+
+        // 显示提示消息
+        function showAlert(type, message) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            const container = document.querySelector('.container');
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = alertHtml;
+            container.insertBefore(tempDiv.firstElementChild, container.firstElementChild);
+        }
+
+        // 更新时间显示
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.getFullYear() + '-' + 
+                              String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(now.getDate()).padStart(2, '0') + ' ' + 
+                              String(now.getHours()).padStart(2, '0') + ':' + 
+                              String(now.getMinutes()).padStart(2, '0') + ':' + 
+                              String(now.getSeconds()).padStart(2, '0');
+            
+            const lastUpdateElement = document.getElementById('last-update');
+            if (lastUpdateElement) {
+                lastUpdateElement.textContent = timeString;
+            }
+        }
+
+        // 每分钟更新时间
+        setInterval(updateTime, 60000);
+        updateTime(); // 立即更新一次
+
+        // 系统健康检查
+        function checkSystemHealth() {
+            const modal = new bootstrap.Modal(document.getElementById('healthCheckModal'));
+            modal.show();
+            loadHealthData();
+        }
+
+        // 刷新健康检查
+        function refreshHealthCheck() {
+            loadHealthData();
+        }
+
+        // 加载健康数据
+        function loadHealthData() {
+            const content = document.getElementById('healthCheckContent');
+            
+            // 显示加载状态
+            content.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">检测中...</span>
+                    </div>
+                    <p class="mt-3">正在检测系统连接状态...</p>
+                </div>
+            `;
+
+            fetch('/health')
+                .then(response => response.json())
+                .then(data => {
+                    displayHealthData(data);
+                })
+                .catch(error => {
+                    content.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>检测失败</strong><br>
+                            无法获取系统状态信息：${error.message}
+                        </div>
+                    `;
+                });
+        }
+
+        // 显示健康数据
+        function displayHealthData(data) {
+            const content = document.getElementById('healthCheckContent');
+            const isHealthy = data.status === 'healthy';
+            
+            let html = `
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="alert ${isHealthy ? 'alert-success' : 'alert-danger'} d-flex align-items-center">
+                            <i class="fas ${isHealthy ? 'fa-check-circle' : 'fa-exclamation-triangle'} me-3 fs-4"></i>
+                            <div>
+                                <h6 class="mb-1">系统状态：${isHealthy ? '正常' : '异常'}</h6>
+                                <small>检测时间：${new Date(data.current_time).toLocaleString()}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-database me-2"></i>数据库连接
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge ${data.database_connected ? 'bg-success' : 'bg-danger'} me-2">
+                                        ${data.database_connected ? '已连接' : '未连接'}
+                                    </span>
+                                    <i class="fas ${data.database_connected ? 'fa-check' : 'fa-times'} text-${data.database_connected ? 'success' : 'danger'}"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-memory me-2"></i>缓存服务
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge ${data.cache_connected ? 'bg-success' : 'bg-danger'} me-2">
+                                        ${data.cache_connected ? '已连接' : '未连接'}
+                                    </span>
+                                    <i class="fas ${data.cache_connected ? 'fa-check' : 'fa-times'} text-${data.cache_connected ? 'success' : 'danger'}"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-clock me-2"></i>调度器状态
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge ${data.scheduler_running ? 'bg-success' : 'bg-warning'} me-2">
+                                        ${data.scheduler_running ? '运行中' : '已停止'}
+                                    </span>
+                                    <i class="fas ${data.scheduler_running ? 'fa-play' : 'fa-pause'} text-${data.scheduler_running ? 'success' : 'warning'}"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-info-circle me-2"></i>系统版本
+                                </h6>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-info me-2">v${data.version}</span>
+                                    <i class="fas fa-tag text-info"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 添加性能信息
+            if (data.performance) {
+                html += `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-tachometer-alt me-2"></i>性能状态
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">当前处理用户数</small>
+                                            <div class="fs-5 fw-bold text-primary">
+                                                ${data.performance.current_processing_users} / ${data.performance.max_concurrent_users}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">系统负载</small>
+                                            <div class="progress mt-1">
+                                                <div class="progress-bar ${data.performance.current_processing_users / data.performance.max_concurrent_users > 0.8 ? 'bg-danger' : data.performance.current_processing_users / data.performance.max_concurrent_users > 0.6 ? 'bg-warning' : 'bg-success'}" 
+                                                     style="width: ${(data.performance.current_processing_users / data.performance.max_concurrent_users) * 100}%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 添加缓存统计信息
+            if (data.cache_stats) {
+                html += `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-chart-bar me-2"></i>缓存统计
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-md-3">
+                                            <div class="border-end">
+                                                <div class="fs-4 fw-bold text-info">${data.cache_stats.total_keys || 0}</div>
+                                                <small class="text-muted">总键数</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border-end">
+                                                <div class="fs-4 fw-bold text-success">${data.cache_stats.hit_rate || '0%'}</div>
+                                                <small class="text-muted">命中率</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="border-end">
+                                                <div class="fs-4 fw-bold text-warning">${data.cache_stats.memory_usage || '0MB'}</div>
+                                                <small class="text-muted">内存使用</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="fs-4 fw-bold text-primary">${data.cache_stats.connections || 0}</div>
+                                            <small class="text-muted">连接数</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 如果有错误信息，显示错误详情
+            if (data.error) {
+                html += `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="alert alert-danger">
+                                <h6><i class="fas fa-bug me-2"></i>错误详情</h6>
+                                <code>${data.error}</code>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = html;
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 自动隐藏提示消息
+            setTimeout(() => {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    if (alert.querySelector('.btn-close')) {
+                        setTimeout(() => {
+                            alert.classList.remove('show');
+                            setTimeout(() => alert.remove(), 150);
+                        }, 5000);
+                    }
+                });
+            }, 100);
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,792 @@
+{% extends "base.html" %}
+
+{% block title %}已发送邮件 - AI邮件简报系统{% endblock %}
+
+{% block extra_head %}
+<style>
+    .email-card {
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        background: #fff;
+    }
+    
+    .email-card:hover {
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        border-color: #007bff;
+        transform: translateY(-2px);
+    }
+    
+    .email-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px 12px 0 0;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .email-subject {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+        line-height: 1.4;
+    }
+    
+    .email-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .email-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .email-body {
+        padding: 1.25rem;
+    }
+    
+    .email-content-preview {
+        color: #495057;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        max-height: 100px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .email-content-preview.expanded {
+        max-height: none;
+    }
+    
+    .content-fade {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 30px;
+        background: linear-gradient(transparent, #fff);
+        pointer-events: none;
+    }
+    
+    .email-content-preview.expanded .content-fade {
+        display: none;
+    }
+    
+    .email-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #f0f0f0;
+    }
+    
+    .btn-action {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-1px);
+    }
+    
+    .status-badge {
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+    
+    .loading-container {
+        text-align: center;
+        padding: 3rem;
+    }
+    
+    .search-filter-bar {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e9ecef;
+    }
+    
+    .filter-input {
+        border-radius: 8px;
+        border: 1px solid #ced4da;
+        padding: 0.75rem 1rem;
+        transition: all 0.2s ease;
+    }
+    
+    .filter-input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .stats-card {
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        backdrop-filter: blur(10px);
+    }
+    
+    .stats-number {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    @media (max-width: 768px) {
+        .email-meta {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .email-actions {
+            flex-direction: column;
+        }
+        
+        .btn-action {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .page-header {
+            padding: 1.5rem 0;
+        }
+        
+        .stats-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 页面头部 -->
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-3">
+                    <i class="fas fa-paper-plane me-3"></i>
+                    已发送邮件
+                </h1>
+                <p class="mb-0 opacity-75">管理和查看您发送的所有邮件</p>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <div class="stats-number" id="total-sent-count">-</div>
+                    <div class="stats-label">总发送数量</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- 搜索和筛选栏 -->
+    <div class="search-filter-bar">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control filter-input border-start-0" 
+                           id="search-input" placeholder="搜索邮件主题或收件人...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select filter-input" id="date-filter">
+                    <option value="">全部时间</option>
+                    <option value="today">今天</option>
+                    <option value="week">本周</option>
+                    <option value="month">本月</option>
+                    <option value="quarter">本季度</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <a href="/compose" class="btn btn-primary w-100">
+                    <i class="fas fa-edit me-2"></i>撰写新邮件
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 邮件列表容器 -->
+    <div id="emails-container">
+        <!-- 加载状态 -->
+        <div class="loading-container" id="loading-state">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3 text-muted">正在加载已发送邮件...</p>
+        </div>
+    </div>
+</div>
+
+<!-- 邮件详情模态框 -->
+<div class="modal fade" id="emailDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-envelope me-2"></i>邮件详情
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="email-detail-content">
+                <!-- 详情内容将通过JavaScript填充 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="edit-email-btn">
+                    <i class="fas fa-edit me-2"></i>重新编辑
+                </button>
+                <button type="button" class="btn btn-success" id="resend-email-btn">
+                    <i class="fas fa-paper-plane me-2"></i>再次发送
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认模态框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认操作</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="confirm-message">
+                <!-- 确认消息 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirm-action-btn">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class SentEmailsManager {
+    constructor() {
+        this.emails = [];
+        this.filteredEmails = [];
+        this.currentEmail = null;
+        this.init();
+    }
+
+    init() {
+        this.bindEvents();
+        this.loadEmails();
+    }
+
+    bindEvents() {
+        // 搜索和筛选
+        document.getElementById('search-input').addEventListener('input', () => this.filterEmails());
+        document.getElementById('date-filter').addEventListener('change', () => this.filterEmails());
+        
+        // 模态框事件
+        document.getElementById('edit-email-btn').addEventListener('click', () => this.editEmail());
+        document.getElementById('resend-email-btn').addEventListener('click', () => this.resendEmail());
+        document.getElementById('confirm-action-btn').addEventListener('click', () => this.executeConfirmedAction());
+    }
+
+    async loadEmails() {
+        try {
+            const response = await fetch('/api/user/sent-emails');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.emails = result.emails || [];
+                this.filteredEmails = [...this.emails];
+                this.renderEmails();
+                this.updateStats();
+            } else {
+                this.showError('加载邮件失败: ' + result.message);
+            }
+        } catch (error) {
+            console.error('加载邮件失败:', error);
+            this.showError('加载邮件失败，请刷新页面重试');
+        } finally {
+            document.getElementById('loading-state').style.display = 'none';
+        }
+    }
+
+    filterEmails() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const dateFilter = document.getElementById('date-filter').value;
+        
+        this.filteredEmails = this.emails.filter(email => {
+            // 搜索过滤
+            const matchesSearch = !searchTerm || 
+                email.subject.toLowerCase().includes(searchTerm) ||
+                email.to_addresses.toLowerCase().includes(searchTerm);
+            
+            // 日期过滤
+            const matchesDate = this.matchesDateFilter(email.sent_at, dateFilter);
+            
+            return matchesSearch && matchesDate;
+        });
+        
+        this.renderEmails();
+    }
+
+    matchesDateFilter(sentAt, filter) {
+        if (!filter) return true;
+        
+        const emailDate = new Date(sentAt);
+        const now = new Date();
+        
+        switch (filter) {
+            case 'today':
+                return emailDate.toDateString() === now.toDateString();
+            case 'week':
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return emailDate >= weekAgo;
+            case 'month':
+                const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                return emailDate >= monthAgo;
+            case 'quarter':
+                const quarterAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+                return emailDate >= quarterAgo;
+            default:
+                return true;
+        }
+    }
+
+    renderEmails() {
+        const container = document.getElementById('emails-container');
+        
+        if (this.filteredEmails.length === 0) {
+            container.innerHTML = this.getEmptyStateHtml();
+            return;
+        }
+        
+        const emailsHtml = this.filteredEmails.map(email => this.getEmailCardHtml(email)).join('');
+        container.innerHTML = emailsHtml;
+        
+        // 绑定卡片事件
+        this.bindCardEvents();
+    }
+
+    getEmailCardHtml(email) {
+        const sentDate = new Date(email.sent_at);
+        const formattedDate = sentDate.toLocaleString('zh-CN');
+        const timeAgo = this.getTimeAgo(sentDate);
+        
+        // 处理邮件内容预览
+        const bodyPreview = this.getBodyPreview(email.body);
+        const hasLongContent = email.body && email.body.length > 200;
+        
+        return `
+            <div class="email-card mb-4" data-email-id="${email.id}">
+                <div class="email-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="email-subject">${this.escapeHtml(email.subject || '(无主题)')}</div>
+                            <div class="email-meta">
+                                <div class="email-meta-item">
+                                    <i class="fas fa-envelope text-primary"></i>
+                                    <span>收件人: ${this.escapeHtml(email.to_addresses)}</span>
+                                </div>
+                                ${email.cc_addresses ? `
+                                    <div class="email-meta-item">
+                                        <i class="fas fa-copy text-info"></i>
+                                        <span>抄送: ${this.escapeHtml(email.cc_addresses)}</span>
+                                    </div>
+                                ` : ''}
+                                <div class="email-meta-item">
+                                    <i class="fas fa-clock text-muted"></i>
+                                    <span title="${formattedDate}">${timeAgo}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="status-badge bg-success text-white">已发送</span>
+                        </div>
+                    </div>
+                </div>
+                
+                ${bodyPreview ? `
+                    <div class="email-body">
+                        <div class="email-content-preview" id="preview-${email.id}">
+                            ${bodyPreview}
+                            ${hasLongContent ? '<div class="content-fade"></div>' : ''}
+                        </div>
+                        
+                        <div class="email-actions">
+                            <button class="btn btn-outline-primary btn-action btn-view-detail" 
+                                    data-email-id="${email.id}">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </button>
+                            ${hasLongContent ? `
+                                <button class="btn btn-outline-secondary btn-action btn-expand" 
+                                        data-email-id="${email.id}">
+                                    <i class="fas fa-expand-alt me-1"></i>展开内容
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-outline-success btn-action btn-edit" 
+                                    data-email-id="${email.id}">
+                                <i class="fas fa-edit me-1"></i>重新编辑
+                            </button>
+                            <button class="btn btn-outline-info btn-action btn-resend" 
+                                    data-email-id="${email.id}">
+                                <i class="fas fa-paper-plane me-1"></i>再次发送
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    getBodyPreview(body) {
+        if (!body) return '';
+        
+        // 移除HTML标签，保留纯文本
+        const textContent = body.replace(/<[^>]*>/g, '').trim();
+        if (!textContent) return '';
+        
+        // 截取前200个字符
+        return textContent.length > 200 
+            ? textContent.substring(0, 200) + '...'
+            : textContent;
+    }
+
+    getEmptyStateHtml() {
+        const hasFilters = document.getElementById('search-input').value || 
+                          document.getElementById('date-filter').value;
+        
+        if (hasFilters) {
+            return `
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h5>未找到匹配的邮件</h5>
+                    <p>请尝试调整搜索条件或筛选器</p>
+                    <button class="btn btn-outline-primary" onclick="this.clearFilters()">
+                        <i class="fas fa-times me-2"></i>清除筛选
+                    </button>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="fas fa-paper-plane"></i>
+                </div>
+                <h5>暂无已发送邮件</h5>
+                <p>开始撰写您的第一封邮件吧！</p>
+                <a href="/compose" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>撰写邮件
+                </a>
+            </div>
+        `;
+    }
+
+    bindCardEvents() {
+        // 查看详情
+        document.querySelectorAll('.btn-view-detail').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const emailId = btn.dataset.emailId;
+                this.viewEmailDetail(emailId);
+            });
+        });
+
+        // 展开/收起内容
+        document.querySelectorAll('.btn-expand').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const emailId = btn.dataset.emailId;
+                this.toggleContent(emailId, btn);
+            });
+        });
+
+        // 重新编辑
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const emailId = btn.dataset.emailId;
+                this.editEmailById(emailId);
+            });
+        });
+
+        // 再次发送
+        document.querySelectorAll('.btn-resend').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const emailId = btn.dataset.emailId;
+                this.resendEmailById(emailId);
+            });
+        });
+    }
+
+    toggleContent(emailId, btn) {
+        const preview = document.getElementById(`preview-${emailId}`);
+        const isExpanded = preview.classList.contains('expanded');
+        
+        if (isExpanded) {
+            preview.classList.remove('expanded');
+            btn.innerHTML = '<i class="fas fa-expand-alt me-1"></i>展开内容';
+        } else {
+            preview.classList.add('expanded');
+            btn.innerHTML = '<i class="fas fa-compress-alt me-1"></i>收起内容';
+        }
+    }
+
+    viewEmailDetail(emailId) {
+        const email = this.emails.find(e => e.id == emailId);
+        if (!email) return;
+        
+        this.currentEmail = email;
+        
+        const detailContent = `
+            <div class="email-detail">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">主题</label>
+                    <div class="form-control-plaintext">${this.escapeHtml(email.subject || '(无主题)')}</div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">收件人</label>
+                        <div class="form-control-plaintext">${this.escapeHtml(email.to_addresses)}</div>
+                    </div>
+                    ${email.cc_addresses ? `
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">抄送</label>
+                            <div class="form-control-plaintext">${this.escapeHtml(email.cc_addresses)}</div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                ${email.bcc_addresses ? `
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">密送</label>
+                        <div class="form-control-plaintext">${this.escapeHtml(email.bcc_addresses)}</div>
+                    </div>
+                ` : ''}
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">发送时间</label>
+                    <div class="form-control-plaintext">${new Date(email.sent_at).toLocaleString('zh-CN')}</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">邮件内容</label>
+                    <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto; background: #f8f9fa;">
+                        ${email.body || '<em class="text-muted">无内容</em>'}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('email-detail-content').innerHTML = detailContent;
+        
+        const modal = new bootstrap.Modal(document.getElementById('emailDetailModal'));
+        modal.show();
+    }
+
+    editEmailById(emailId) {
+        const email = this.emails.find(e => e.id == emailId);
+        if (!email) return;
+        
+        // 构建编辑URL，传递邮件数据
+        const params = new URLSearchParams({
+            action: 'edit',
+            subject: email.subject || '',
+            to: email.to_addresses || '',
+            cc: email.cc_addresses || '',
+            bcc: email.bcc_addresses || '',
+            body: email.body || ''
+        });
+        
+        window.location.href = `/compose?${params.toString()}`;
+    }
+
+    resendEmailById(emailId) {
+        const email = this.emails.find(e => e.id == emailId);
+        if (!email) return;
+        
+        this.currentEmail = email;
+        this.showConfirmModal(
+            '确认再次发送',
+            `确定要再次发送邮件"${email.subject || '(无主题)'}"吗？`,
+            'resend'
+        );
+    }
+
+    editEmail() {
+        if (!this.currentEmail) return;
+        this.editEmailById(this.currentEmail.id);
+    }
+
+    resendEmail() {
+        if (!this.currentEmail) return;
+        this.resendEmailById(this.currentEmail.id);
+    }
+
+    showConfirmModal(title, message, action) {
+        document.querySelector('#confirmModal .modal-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        document.getElementById('confirm-action-btn').dataset.action = action;
+        
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        modal.show();
+    }
+
+    async executeConfirmedAction() {
+        const action = document.getElementById('confirm-action-btn').dataset.action;
+        
+        if (action === 'resend' && this.currentEmail) {
+            await this.performResend();
+        }
+        
+        // 关闭确认模态框
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+    }
+
+    async performResend() {
+        try {
+            const response = await fetch('/api/compose/resend', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email_id: this.currentEmail.id
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert('success', '邮件已成功再次发送！');
+                // 关闭详情模态框
+                const detailModal = bootstrap.Modal.getInstance(document.getElementById('emailDetailModal'));
+                if (detailModal) detailModal.hide();
+            } else {
+                this.showAlert('danger', '发送失败: ' + result.message);
+            }
+        } catch (error) {
+            console.error('再次发送失败:', error);
+            this.showAlert('danger', '发送失败，请稍后重试');
+        }
+    }
+
+    updateStats() {
+        document.getElementById('total-sent-count').textContent = this.emails.length;
+    }
+
+    clearFilters() {
+        document.getElementById('search-input').value = '';
+        document.getElementById('date-filter').value = '';
+        this.filterEmails();
+    }
+
+    getTimeAgo(date) {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        
+        if (diffInSeconds < 60) return '刚刚';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}分钟前`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}小时前`;
+        if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}天前`;
+        
+        return date.toLocaleDateString('zh-CN');
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    showAlert(type, message) {
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        const container = document.querySelector('.container');
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = alertHtml;
+        container.insertBefore(tempDiv.firstElementChild, container.firstElementChild);
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            const alert = container.querySelector('.alert');
+            if (alert) {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 150);
+            }
+        }, 5000);
+    }
+
+    showError(message) {
+        const container = document.getElementById('emails-container');
+        container.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${message}
+                <button type="button" class="btn btn-outline-danger ms-3" onclick="location.reload()">
+                    <i class="fas fa-refresh me-1"></i>重新加载
+                </button>
+            </div>
+        `;
+    }
+}
+
+// 初始化管理器
+document.addEventListener('DOMContentLoaded', () => {
+    window.sentEmailsManager = new SentEmailsManager();
+});
+</script>
+{% endblock %}

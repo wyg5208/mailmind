@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block title %}简报历史 - AI邮件简报系统{% endblock %}
+
+{% block content %}
+
+
+<!-- 时间筛选 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <form class="row g-3" method="GET">
+                    <div class="col-md-3">
+                        <label for="start_date" class="form-label">开始日期</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ request.args.get('start_date', '') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="end_date" class="form-label">结束日期</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ request.args.get('end_date', '') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="email_count_filter" class="form-label">邮件数量</label>
+                        <select class="form-select" id="email_count_filter" name="email_count_filter">
+                            <option value="">全部</option>
+                            <option value="0" {{ 'selected' if request.args.get('email_count_filter') == '0' }}>无邮件</option>
+                            <option value="1-10" {{ 'selected' if request.args.get('email_count_filter') == '1-10' }}>1-10封</option>
+                            <option value="11-50" {{ 'selected' if request.args.get('email_count_filter') == '11-50' }}>11-50封</option>
+                            <option value="50+" {{ 'selected' if request.args.get('email_count_filter') == '50+' }}>50封以上</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i>筛选
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 简报列表 -->
+<div class="row">
+    <div class="col-12">
+        {% if digests %}
+        <div class="digests-container">
+            {% for digest in digests %}
+            <div class="digest-card card border-0 shadow-sm mb-4">
+                <div class="card-header bg-gradient-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-1">
+                                <i class="fas fa-newspaper me-2"></i>{{ digest.title or '邮件简报' }}
+                            </h5>
+                            <p class="card-subtitle mb-0 opacity-75">
+                                <i class="fas fa-calendar me-1"></i>
+                                {{ digest.date[:10] if digest.date else '未知日期' }}
+                                <span class="ms-3">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <span data-utc-time="{{ digest.created_at[:19] if digest.created_at else '' }}">
+                                        {{ digest.created_at[:19].replace('T', ' ') if digest.created_at else '未知时间' }}
+                                    </span>
+                                </span>
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-light text-primary fs-6 px-3 py-2">
+                                <i class="fas fa-envelope me-1"></i>{{ digest.email_count or 0 }} 封邮件
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- 简报摘要 -->
+                    {% if digest.summary %}
+                    <div class="digest-summary mb-3">
+                        <h6 class="text-muted mb-2">
+                            <i class="fas fa-lightbulb me-1"></i>简报摘要
+                        </h6>
+                        <p class="text-muted">{{ digest.summary }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 简报统计 -->
+                    {% if digest.content and digest.content.stats %}
+                    <div class="digest-stats mb-3">
+                        <h6 class="text-muted mb-2">
+                            <i class="fas fa-chart-bar me-1"></i>统计信息
+                        </h6>
+                        <div class="row g-2">
+                            {% if digest.content.stats.categories %}
+                            <div class="col-auto">
+                                <small class="text-muted">
+                                    <strong>分类:</strong>
+                                    {% for category, count in digest.content.stats.categories.items() %}
+                                    <span class="badge bg-secondary ms-1">{{ category }}: {{ count }}</span>
+                                    {% endfor %}
+                                </small>
+                            </div>
+                            {% endif %}
+                            {% if digest.content.stats.providers %}
+                            <div class="col-auto">
+                                <small class="text-muted">
+                                    <strong>邮箱:</strong>
+                                    {% for provider, count in digest.content.stats.providers.items() %}
+                                    <span class="badge bg-info ms-1">{{ provider.upper() }}: {{ count }}</span>
+                                    {% endfor %}
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 邮件预览 -->
+                    {% if digest.content and digest.content.emails %}
+                    <div class="emails-preview">
+                        <h6 class="text-muted mb-2">
+                            <i class="fas fa-envelope-open me-1"></i>邮件预览
+                        </h6>
+                        <div class="emails-list-preview">
+                            {% for email in digest.content.emails[:3] %}
+                            <div class="email-preview-item border-start border-primary border-2 ps-3 mb-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ email.subject or '无主题' }}</h6>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>{{ email.sender_name or email.sender }}
+                                        </small>
+                                    </div>
+                                    <small class="text-muted">{{ email.time or '' }}</small>
+                                </div>
+                                {% if email.summary %}
+                                <p class="small text-muted mb-0 mt-1">{{ email.summary[:100] }}{% if email.summary|length > 100 %}...{% endif %}</p>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                            
+                            {% if digest.content.emails|length > 3 %}
+                            <div class="text-center mt-2">
+                                <small class="text-muted">还有 {{ digest.content.emails|length - 3 }} 封邮件...</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="card-footer bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            ID: {{ digest.id }}
+                        </small>
+                        <div>
+                            <a href="{{ url_for('digest_detail', digest_id=digest.id) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </a>
+                            <button class="btn btn-outline-danger btn-sm ms-2" onclick="deleteDigest('{{ digest.id }}')">
+                                <i class="fas fa-trash me-1"></i>删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 分页 -->
+        {% if pagination and pagination.pages > 1 %}
+        <nav aria-label="简报历史分页">
+            <ul class="pagination justify-content-center">
+                {% if pagination.page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pagination.page - 1 }}{% if request.args.get('start_date') %}&start_date={{ request.args.get('start_date') }}{% endif %}{% if request.args.get('end_date') %}&end_date={{ request.args.get('end_date') }}{% endif %}{% if request.args.get('email_count_filter') %}&email_count_filter={{ request.args.get('email_count_filter') }}{% endif %}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in range(1, pagination.pages + 1) %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% elif page_num <= 3 or page_num > pagination.pages - 3 or (page_num >= pagination.page - 2 and page_num <= pagination.page + 2) %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_num }}{% if request.args.get('start_date') %}&start_date={{ request.args.get('start_date') }}{% endif %}{% if request.args.get('end_date') %}&end_date={{ request.args.get('end_date') }}{% endif %}{% if request.args.get('email_count_filter') %}&email_count_filter={{ request.args.get('email_count_filter') }}{% endif %}">{{ page_num }}</a>
+                    </li>
+                    {% elif page_num == 4 or page_num == pagination.pages - 3 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.page < pagination.pages %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pagination.page + 1 }}{% if request.args.get('start_date') %}&start_date={{ request.args.get('start_date') }}{% endif %}{% if request.args.get('end_date') %}&end_date={{ request.args.get('end_date') }}{% endif %}{% if request.args.get('email_count_filter') %}&email_count_filter={{ request.args.get('email_count_filter') }}{% endif %}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <!-- 空状态 -->
+        <div class="empty-state card border-0 shadow-sm text-center py-5">
+            <div class="card-body">
+                <i class="fas fa-newspaper text-muted display-1 mb-4"></i>
+                <h3 class="text-muted mb-3">暂无历史简报</h3>
+                <p class="text-muted mb-4">
+                    {% if request.args.get('start_date') or request.args.get('end_date') or request.args.get('email_count_filter') %}
+                    没有找到符合筛选条件的简报。
+                    {% else %}
+                    系统还没有生成过简报，请先配置邮箱账户并触发邮件处理。
+                    {% endif %}
+                </p>
+                {% if request.args.get('start_date') or request.args.get('end_date') or request.args.get('email_count_filter') %}
+                <a href="{{ url_for('digests_history') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-times me-1"></i>清除筛选
+                </a>
+                {% else %}
+                <div>
+                    <a href="{{ url_for('settings') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-cog me-1"></i>配置邮箱
+                    </a>
+                    <button class="btn btn-outline-primary" onclick="triggerProcessing()">
+                        <i class="fas fa-play me-1"></i>处理邮件
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 批量操作 -->
+{% if digests %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">批量操作</h6>
+                        <small class="text-muted">选择多个简报进行批量操作</small>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="selectAllDigests()">
+                            <i class="fas fa-check-square me-1"></i>全选
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                            <i class="fas fa-square me-1"></i>清除
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="exportSelected()">
+                            <i class="fas fa-download me-1"></i>导出
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteSelected()">
+                            <i class="fas fa-trash me-1"></i>删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 删除简报
+function deleteDigest(digestId) {
+    if (!confirm('确定要删除这份简报吗？此操作不可撤销。')) {
+        return;
+    }
+    
+    fetch(`/api/digests/${digestId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', '简报删除成功');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('danger', data.error || '删除失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting digest:', error);
+        showAlert('danger', '删除失败: ' + error.message);
+    });
+}
+
+// 全选简报
+function selectAllDigests() {
+    const checkboxes = document.querySelectorAll('.digest-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+    updateBatchButtons();
+}
+
+// 清除选择
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.digest-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    updateBatchButtons();
+}
+
+// 更新批量操作按钮状态
+function updateBatchButtons() {
+    const selected = document.querySelectorAll('.digest-checkbox:checked');
+    const batchButtons = document.querySelectorAll('.batch-action-btn');
+    
+    batchButtons.forEach(btn => {
+        btn.disabled = selected.length === 0;
+    });
+}
+
+// 导出选中的简报
+function exportSelected() {
+    const selected = Array.from(document.querySelectorAll('.digest-checkbox:checked'))
+                          .map(cb => cb.value);
+    
+    if (selected.length === 0) {
+        showAlert('warning', '请先选择要导出的简报');
+        return;
+    }
+    
+    showAlert('info', '导出功能开发中...');
+}
+
+// 删除选中的简报
+function deleteSelected() {
+    const selected = Array.from(document.querySelectorAll('.digest-checkbox:checked'))
+                          .map(cb => cb.value);
+    
+    if (selected.length === 0) {
+        showAlert('warning', '请先选择要删除的简报');
+        return;
+    }
+    
+    if (!confirm(`确定要删除选中的 ${selected.length} 份简报吗？此操作不可撤销。`)) {
+        return;
+    }
+    
+    showAlert('info', '批量删除功能开发中...');
+}
+
+// 转换所有时间显示为东八区时间
+function convertAllTimesToChineseTime() {
+    // 转换所有简报的created_at时间
+    const timeElements = document.querySelectorAll('[data-utc-time]');
+    
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Shanghai'  // 东八区
+    };
+    
+    timeElements.forEach(element => {
+        const utcTimeStr = element.getAttribute('data-utc-time');
+        try {
+            // 数据库中存储的是UTC时间，添加Z表示UTC
+            const utcTime = new Date(utcTimeStr + 'Z');
+            element.textContent = utcTime.toLocaleString('zh-CN', options);
+        } catch (e) {
+            console.log('Time conversion failed for:', utcTimeStr, e);
+        }
+    });
+}
+
+// 自动设置日期范围
+document.addEventListener('DOMContentLoaded', function() {
+    // 如果没有设置日期范围，默认显示最近30天
+    const startDate = document.getElementById('start_date');
+    const endDate = document.getElementById('end_date');
+    
+    if (!startDate.value && !endDate.value) {
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        endDate.value = today.toISOString().split('T')[0];
+        startDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+    }
+    
+    // 转换所有时间显示
+    convertAllTimesToChineseTime();
+});
+</script>
+{% endblock %}

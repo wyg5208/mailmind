@@ -1,0 +1,763 @@
+/* AI邮件简报系统 - 现代化样式 */
+
+/* 基础样式 */
+:root {
+    --primary-color: #4f46e5;
+    --primary-light: #8b5cf6;
+    --primary-dark: #3730a3;
+    --secondary-color: #64748b;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+    --info-color: #3b82f6;
+    --light-color: #f8fafc;
+    --dark-color: #1e293b;
+    --gradient-primary: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 全局样式 */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f1f5f9;
+    color: #334155;
+    line-height: 1.6;
+}
+
+/* 导航栏样式 */
+.navbar {
+    background: var(--gradient-primary) !important;
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(10px);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: white !important;
+}
+
+.navbar-nav .nav-link {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9) !important;
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+    margin: 0 0.25rem;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link.active {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* 主内容区域 */
+.main-content {
+    margin-top: 80px;
+    margin-bottom: 2rem;
+    min-height: calc(100vh - 200px);
+}
+
+/* 页面标题样式 */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.display-6 {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* 卡片样式增强 */
+.card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    border: none;
+    font-weight: 600;
+}
+
+.bg-gradient-primary {
+    background: var(--gradient-primary);
+}
+
+/* 统计卡片样式 */
+.stat-card {
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-xl);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* 简报卡片样式 */
+.digest-card {
+    border-radius: 1.5rem;
+    overflow: hidden;
+}
+
+.digest-card .card-header {
+    background: var(--gradient-primary);
+    padding: 1.5rem;
+}
+
+.digest-card .card-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+/* 邮件项目样式 */
+.email-item {
+    transition: all 0.3s ease;
+    border-radius: 1rem;
+}
+
+.email-item:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+}
+
+.email-subject {
+    font-weight: 600;
+    color: var(--dark-color);
+    line-height: 1.4;
+}
+
+.email-summary {
+    color: var(--secondary-color);
+    line-height: 1.5;
+}
+
+.ai-summary {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-left: 4px solid var(--info-color);
+}
+
+/* 分类样式 */
+.category-section {
+    margin-bottom: 2rem;
+}
+
+.category-title {
+    font-weight: 600;
+    color: var(--dark-color);
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+    margin-bottom: 1rem;
+}
+
+/* 按钮增强 */
+.btn {
+    font-weight: 500;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn:hover:before {
+    left: 100%;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    border: none;
+}
+
+.btn-success {
+    background: var(--gradient-success);
+    border: none;
+}
+
+.btn-warning {
+    background: var(--gradient-warning);
+    border: none;
+}
+
+.btn-danger {
+    background: var(--gradient-danger);
+    border: none;
+}
+
+/* 表单样式增强 */
+.form-control,
+.form-select {
+    border-radius: 0.75rem;
+    border: 2px solid #e2e8f0;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.15);
+}
+
+.input-group-text {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 0.75rem 0 0 0.75rem;
+    color: var(--secondary-color);
+}
+
+/* 徽章样式 */
+.badge {
+    font-weight: 500;
+    padding: 0.5em 0.75em;
+    border-radius: 0.5rem;
+}
+
+/* 提示框样式 */
+.alert {
+    border: none;
+    border-radius: 1rem;
+    font-weight: 500;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    color: #0369a1;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    color: #166534;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    color: #92400e;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #991b1b;
+}
+
+/* 加载覆盖层 */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+}
+
+.spinner-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    text-align: center;
+    box-shadow: var(--shadow-xl);
+}
+
+/* 空状态样式 */
+.empty-state,
+.no-digest-card,
+.empty-accounts {
+    padding: 3rem 2rem;
+}
+
+.empty-state i,
+.no-digest-card i,
+.empty-accounts i {
+    opacity: 0.6;
+}
+
+/* 分页样式 */
+.pagination .page-link {
+    border-radius: 0.5rem;
+    border: none;
+    margin: 0 0.125rem;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.pagination .page-item.active .page-link {
+    background: var(--gradient-primary);
+    border: none;
+}
+
+/* 表格样式 */
+.table {
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.table thead th {
+    background: #f8fafc;
+    border: none;
+    font-weight: 600;
+    color: var(--dark-color);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.table tbody td {
+    border-color: #e2e8f0;
+    vertical-align: middle;
+}
+
+/* 状态指示器 */
+.status-item {
+    padding: 1rem;
+}
+
+.status-icon {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.status-title {
+    font-weight: 600;
+    color: var(--secondary-color);
+    margin-bottom: 0.25rem;
+}
+
+.status-value {
+    font-weight: 700;
+}
+
+/* 页脚样式 */
+.footer {
+    border-top: 1px solid #e2e8f0;
+    background: white;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .main-content {
+        margin-top: 70px;
+        padding: 0 1rem;
+    }
+    
+    .display-6 {
+        font-size: 2rem;
+    }
+    
+    .stat-card {
+        margin-bottom: 1rem;
+    }
+    
+    .email-item .row {
+        flex-direction: column;
+    }
+    
+    .email-sidebar {
+        margin-top: 1rem;
+        text-align: left !important;
+    }
+    
+    .btn-group-vertical {
+        flex-direction: row;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .digest-card .card-header {
+        padding: 1rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.card,
+.email-item,
+.stat-card {
+    animation: fadeIn 0.6s ease-out;
+}
+
+.email-sidebar {
+    animation: slideInRight 0.6s ease-out;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* 选择文本样式 */
+::selection {
+    background: rgba(79, 70, 229, 0.2);
+    color: var(--dark-color);
+}
+
+/* 焦点样式 */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25);
+}
+
+/* 过渡动画 */
+* {
+    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --light-color: #1e293b;
+        --dark-color: #f1f5f9;
+    }
+    
+    body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+    }
+    
+    .card {
+        background-color: #1e293b;
+        color: #e2e8f0;
+    }
+    
+    .table {
+        --bs-table-bg: #1e293b;
+        --bs-table-color: #e2e8f0;
+    }
+    
+    .form-control,
+    .form-select {
+        background-color: #334155;
+        border-color: #475569;
+        color: #e2e8f0;
+    }
+}
+
+/* =========================================================
+   紧凑模式覆盖（全站缩小2-4号字号与控件尺寸）
+   说明：不改动HTML结构，通过覆盖降低字体与间距
+   生效范围：导航栏 / 卡片 / 表单 / 按钮 / 表格 / 分页 / 模态框
+   ========================================================= */
+
+/* 全局根字号下调，约从16px降到14px（≈-12.5%） */
+html {
+    font-size: 14px;
+}
+
+/* 标题与大号文本适度下调 */
+.display-6 {
+    font-size: 2.125rem; /* 原本未显式设置，约合34px，现约30px */
+}
+
+/* 导航栏更紧凑 */
+.navbar {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+.navbar-brand {
+    font-size: 1.25rem; /* 由1.5rem下调 */
+}
+.navbar-nav .nav-link {
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+/* 卡片内边距下调 */
+.card-header {
+    padding: 0.75rem 1rem;
+}
+.card-body {
+    padding: 0.9rem 1rem;
+}
+
+/* 统计组件缩小 */
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.25rem;
+}
+.stat-number {
+    font-size: 2.1rem; /* 由2.5rem下调 */
+}
+
+/* 状态组件缩小 */
+.status-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1rem;
+}
+
+/* 按钮更紧凑 */
+.btn {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+}
+
+/* 表单控件更紧凑 */
+.form-control,
+.form-select {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.5rem;
+}
+.input-group-text {
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.5rem 0 0 0.5rem;
+}
+
+/* 徽章更紧凑 */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.6em;
+}
+
+/* 表格字体与间距下调 */
+.table {
+    font-size: 0.9rem;
+}
+.table thead th {
+    font-size: 0.7rem; /* 由0.75rem下调 */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+.table tbody td {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+/* 分页更紧凑 */
+.pagination .page-link {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.9rem;
+}
+
+/* 模态框更紧凑：标题、内容与底部区域 */
+.modal-title {
+    font-size: 1rem;
+}
+.modal-header,
+.modal-body,
+.modal-footer {
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+}
+
+/* 表单帮助文本与小字说明更紧凑 */
+.form-text,
+small {
+    font-size: 0.8rem;
+}
+
+/* 响应式下依然保持紧凑但不过度缩小 */
+@media (max-width: 576px) {
+    html { font-size: 13px; }
+    .navbar-brand { font-size: 1.1rem; }
+    .btn { font-size: 0.85rem; padding: 0.35rem 0.6rem; }
+}
+
+/* =========================================================
+   个人资料页面专用样式
+   ========================================================= */
+
+/* 紧凑统计样式 */
+.stat-compact {
+    padding: 0.5rem 0;
+}
+
+.stat-compact .stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-compact .stat-label {
+    font-size: 0.75rem;
+    line-height: 1;
+    margin-top: 0.25rem;
+}
+
+/* 详细信息项样式 */
+.detail-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+/* 安全设置项样式 */
+.security-item {
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+}
+
+/* 活动统计行样式 */
+.stat-row {
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.stat-row:last-child {
+    border-bottom: none;
+}
+
+/* 用户概览卡片样式 */
+.avatar-circle {
+    flex-shrink: 0;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    /* 移动端统计数据垂直排列 */
+    .stat-compact {
+        margin-bottom: 1rem;
+    }
+    
+    /* 移动端用户信息垂直排列 */
+    .col-md-4, .col-md-6, .col-md-2 {
+        margin-bottom: 1rem;
+    }
+    
+    .col-md-2 {
+        text-align: center !important;
+    }
+    
+    /* 移动端三栏变单栏 */
+    .col-lg-4 {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    /* 小屏幕下进一步优化 */
+    .stat-compact .stat-number {
+        font-size: 1.25rem;
+    }
+    
+    .avatar-circle {
+        width: 50px !important;
+        height: 50px !important;
+    }
+    
+    .security-item {
+        padding: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+}

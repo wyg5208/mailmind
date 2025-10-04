@@ -1,0 +1,1213 @@
+{% extends "base.html" %}
+
+{% block title %}回收站 - AI邮件简报系统{% endblock %}
+
+{% block extra_css %}
+<!-- 性能优化组件CSS -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/performance/virtual_scroll.css') }}">
+<style>
+/* 全屏按钮样式 */
+#fullscreenToggleBtn {
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#fullscreenToggleBtn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
+/* 全屏模态框样式优化 */
+.modal-fullscreen .modal-body {
+    padding: 2rem;
+}
+
+.modal-fullscreen .modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.modal-fullscreen .modal-footer {
+    border-top: 1px solid #dee2e6;
+}
+
+/* 紧凑邮件卡片样式（与首页一致） */
+.email-item-compact {
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.email-item-compact:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.email-header-compact {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.email-header-compact:hover { background-color: rgba(0,0,0,0.02); }
+.expand-icon { transition: transform 0.2s ease; }
+.email-item-compact.expanded .expand-icon { transform: rotate(90deg); }
+.email-subject-compact { font-weight: 500; font-size: 0.95rem; color: #333; }
+.translate-title-btn { opacity: 0.75; transition: opacity 0.2s ease; }
+.translate-title-btn:hover { opacity: 1; }
+.translated-title { 
+    color: #0d6efd !important; 
+    font-style: italic; 
+    position: relative;
+}
+.translated-title::after {
+    content: " [译]";
+    font-size: 0.7em;
+    color: #6c757d;
+    font-style: normal;
+}
+
+/* 分类标签样式优化 */
+.badge.category-badge {
+    transition: all 0.2s ease;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.badge.category-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    filter: brightness(1.1);
+}
+
+/* 重要性标签强调 */
+.badge.importance-badge {
+    font-weight: 600;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* 回收站特殊样式 */
+.recycle-bin-header {
+    background: linear-gradient(135deg, #dc3545, #fd7e14);
+    color: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.deleted-email-card {
+    opacity: 0.85;
+    border-left: 4px solid #dc3545 !important;
+}
+
+.restore-btn {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.restore-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    color: white;
+}
+
+.purge-btn {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.purge-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+    color: white;
+}
+
+/* 悬浮透明提醒标签样式 */
+.floating-tooltip {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    max-width: 350px;
+    background: rgba(13, 110, 253, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    color: white;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.tooltip-content {
+    padding: 16px 20px;
+}
+
+.tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+}
+
+.tooltip-header .btn-close {
+    background: rgba(255,255,255,0.3);
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.tooltip-header .btn-close:hover {
+    background: rgba(255,255,255,0.5);
+}
+
+.tooltip-header .btn-close::before {
+    content: '×';
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.tooltip-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.tooltip-list li {
+    margin-bottom: 8px;
+    padding-left: 16px;
+    position: relative;
+}
+
+.tooltip-list li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: rgba(255,255,255,0.8);
+}
+
+.tooltip-list li:last-child {
+    margin-bottom: 0;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 帮助按钮样式 */
+.help-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1040;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border: none;
+    color: white;
+    font-size: 20px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.help-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,123,255,0.4);
+    background: linear-gradient(135deg, #0056b3, #004085);
+}
+
+/* 响应式优化 - 移动端 */
+@media (max-width: 576px) {
+    .badge.category-badge {
+        font-size: 0.75rem !important;
+        padding: 0.25rem 0.35rem !important;
+    }
+    
+    .floating-tooltip {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+    
+    .help-btn {
+        bottom: 20px;
+        right: 20px;
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- 悬浮透明提醒标签 -->
+<div id="floatingTooltip" class="floating-tooltip" style="display: none;">
+    <div class="tooltip-content">
+        <div class="tooltip-header">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>回收站使用说明</strong>
+            <button class="btn-close" onclick="hideFloatingTooltip()"></button>
+        </div>
+        <ul class="tooltip-list">
+            <li><strong>已删除的邮件仍会阻止相同邮件重新导入</strong> - 防止垃圾邮件重复出现</li>
+            <li><strong>恢复邮件</strong> - 邮件重新出现在邮件列表中</li>
+            <li><strong>彻底删除</strong> - 永久删除且无法恢复，相同邮件可能重新导入</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 顶部批量展开/收起控制 -->
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <span class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                共找到 {{ total }} 封已删除邮件
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm expand-all-btn" data-scope="all">
+                <i class="fas fa-chevron-down"></i> 展开全部
+            </button>
+            <button class="btn btn-outline-secondary btn-sm collapse-all-btn" data-scope="all" style="display:none;">
+                <i class="fas fa-chevron-up"></i> 收起全部
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选和搜索 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <form class="row g-3" method="GET">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">搜索邮件</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   placeholder="搜索主题、发件人或内容..." value="{{ search }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="category" class="form-label">分类</label>
+                        <select class="form-select" id="category" name="category">
+                            <option value="">全部分类</option>
+                            <option value="important" {{ 'selected' if request.args.get('category') == 'important' }}>重要邮件</option>
+                            <option value="work" {{ 'selected' if request.args.get('category') == 'work' }}>💼 工作邮件</option>
+                            <option value="finance" {{ 'selected' if request.args.get('category') == 'finance' }}>💰 财务邮件</option>
+                            <option value="social" {{ 'selected' if request.args.get('category') == 'social' }}>👥 社交邮件</option>
+                            <option value="shopping" {{ 'selected' if request.args.get('category') == 'shopping' }}>🛒 购物邮件</option>
+                            <option value="news" {{ 'selected' if request.args.get('category') == 'news' }}>📰 资讯邮件</option>
+                            <option value="education" {{ 'selected' if request.args.get('category') == 'education' }}>🎓 教育学习</option>
+                            <option value="travel" {{ 'selected' if request.args.get('category') == 'travel' }}>✈️ 旅行出行</option>
+                            <option value="health" {{ 'selected' if request.args.get('category') == 'health' }}>🏥 健康医疗</option>
+                            <option value="system" {{ 'selected' if request.args.get('category') == 'system' }}>🔔 系统通知</option>
+                            <option value="advertising" {{ 'selected' if request.args.get('category') == 'advertising' }}>📢 广告邮件</option>
+                            <option value="spam" {{ 'selected' if request.args.get('category') == 'spam' }}>🗑️ 垃圾邮件</option>
+                            <option value="general" {{ 'selected' if request.args.get('category') == 'general' }}>📁 其他</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="provider" class="form-label">邮件服务商</label>
+                        <select class="form-select" id="provider" name="provider">
+                            <option value="">全部服务商</option>
+                            {% for prov in providers %}
+                            <option value="{{ prov }}" {{ 'selected' if provider == prov }}>{{ prov }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="processed" class="form-label">处理状态</label>
+                        <select class="form-select" id="processed" name="processed">
+                            <option value="">全部状态</option>
+                            <option value="1" {{ 'selected' if processed == '1' }}>已处理</option>
+                            <option value="0" {{ 'selected' if processed == '0' }}>未处理</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i>筛选
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 邮件列表 -->
+<div class="row">
+    <div class="col-12">
+        {% if emails %}
+        <div class="emails-container">
+            {% for email in emails %}
+            <div class="email-item-compact card border-start border-danger border-2 mb-1 deleted-email-card" data-email-id="{{ email.id|default(0) }}">
+                <!-- 紧凑标题行（可点击展开/收起） -->
+                <div class="email-header-compact card-body py-2 px-3 cursor-pointer" onclick="toggleEmailExpand(this)">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="email-title-section flex-grow-1 me-2" style="min-width: 0;">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-chevron-right expand-icon me-2 text-muted" style="font-size: 0.7rem; transition: transform 0.2s;"></i>
+                                
+                                <!-- 重要性标签 -->
+                                {% if email.importance >= 3 %}
+                                <span class="badge bg-danger importance-badge me-2" style="font-size: 0.6rem;">🔴 重要</span>
+                                {% elif email.importance == 2 %}
+                                <span class="badge bg-warning importance-badge me-2" style="font-size: 0.6rem;">🟡 中等</span>
+                                {% endif %}
+                                
+                                <!-- 分类标签 -->
+                                {% if email.category %}
+                                    {% set category_config = {
+                                        'work': {'icon': '💼', 'color': 'primary', 'name': '工作'},
+                                        'finance': {'icon': '💰', 'color': 'success', 'name': '财务'},
+                                        'social': {'icon': '👥', 'color': 'info', 'name': '社交'},
+                                        'shopping': {'icon': '🛒', 'color': 'warning', 'name': '购物'},
+                                        'news': {'icon': '📰', 'color': 'secondary', 'name': '资讯'},
+                                        'education': {'icon': '🎓', 'color': 'primary', 'name': '教育'},
+                                        'travel': {'icon': '✈️', 'color': 'info', 'name': '旅行'},
+                                        'health': {'icon': '🏥', 'color': 'danger', 'name': '健康'},
+                                        'system': {'icon': '🔔', 'color': 'dark', 'name': '系统'},
+                                        'advertising': {'icon': '📢', 'color': 'info', 'name': '广告'},
+                                        'spam': {'icon': '🗑️', 'color': 'danger', 'name': '垃圾'},
+                                        'general': {'icon': '📁', 'color': 'light text-dark', 'name': '其他'}
+                                    } %}
+                                    {% set cat = category_config.get(email.category, category_config['general']) %}
+                                    <a href="?category={{ email.category }}" 
+                                       class="badge bg-{{ cat.color }} category-badge me-2 text-decoration-none" 
+                                       style="font-size: 0.65rem; cursor: pointer;" 
+                                       title="分类: {{ cat.name }}（点击筛选同类邮件）"
+                                       onclick="event.stopPropagation();">
+                                        {{ cat.icon }}
+                                    </a>
+                                {% endif %}
+                                
+                                <!-- 邮件主题 -->
+                                <span class="email-subject-compact text-truncate" data-original-title="{{ email.subject }}">{{ email.subject or '无主题' }}</span>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="email-meta-compact d-flex align-items-center flex-shrink-0">
+                            <small class="text-muted me-2 d-none d-md-inline">{{ email.date[:19].replace('T', ' ') if email.date else '' }}</small>
+                            <small class="text-muted me-2 d-none d-sm-inline">{{ email.sender[:20] }}{% if email.sender|length > 20 %}...{% endif %}</small>
+                            <span class="badge {{ 'bg-success' if email.processed else 'bg-warning' }} me-2" style="font-size: 0.6rem;">
+                                {{ '已处理' if email.processed else '未处理' }}
+                            </span>
+                            
+                            <!-- 翻译按钮 -->
+                            <button class="btn btn-outline-info btn-sm translate-title-btn p-1 me-1" 
+                                    onclick="event.stopPropagation(); translateTitle(this, '{{ email.subject }}')"
+                                    title="翻译标题" data-translated="false" style="font-size: 0.7rem;">
+                                <i class="fas fa-language"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 展开内容区域 -->
+                <div class="email-content-expanded card-body pt-0 pb-2 px-3" style="display: none;">
+                    <div class="border-top pt-2">
+                        <p class="email-summary text-muted mb-2" style="font-size: 0.9rem;">
+                            {% if email.ai_summary %}
+                                {{ email.ai_summary }}
+                            {% elif email.summary %}
+                                {{ email.summary }}
+                            {% else %}
+                                暂无摘要
+                            {% endif %}
+                        </p>
+                        <div class="email-meta">
+                            <small class="text-muted">
+                                <i class="fas fa-user me-1"></i>
+                                <span class="sender-display">
+                                    {% set sender_parts = email.sender.split('<') if email.sender and '<' in email.sender else [] %}
+                                    {% if sender_parts|length == 2 %}
+                                        <span class="fw-bold">{{ sender_parts[0].strip().strip('"').strip("'") }}</span>
+                                        <span class="text-muted ms-1">&lt;{{ sender_parts[1].rstrip('>') }}&gt;</span>
+                                    {% elif email.sender and '@' in email.sender %}
+                                        <span class="fw-bold">{{ email.sender.split('@')[0] }}</span>
+                                        <span class="text-muted ms-1">&lt;{{ email.sender }}&gt;</span>
+                                    {% else %}
+                                        <span class="fw-bold">{{ email.sender or '未知发件人' }}</span>
+                                    {% endif %}
+                                </span>
+                                {% if email.account_email %}
+                                <i class="fas fa-at ms-2 me-1"></i>{{ email.account_email }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <button class="btn restore-btn btn-sm" onclick="restoreEmail({{ email.id }})" 
+                                    title="恢复邮件到正常状态，重新出现在邮件列表中">
+                                <i class="fas fa-undo me-1"></i>恢复邮件
+                            </button>
+                            
+                            <button class="btn btn-outline-primary btn-sm" data-email-id="{{ email.id|default(0) }}" onclick="viewEmailDetail(this.dataset.emailId)"
+                                    title="查看邮件的完整内容和详细信息">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </button>
+                            
+                            <button class="btn btn-outline-info btn-sm" onclick="translateEmail({{ email.id }})"
+                                    title="翻译邮件内容">
+                                <i class="fas fa-language me-1"></i>翻译
+                            </button>
+                            
+                            <button class="btn purge-btn btn-sm" onclick="purgeEmail({{ email.id }})" 
+                                    title="永久删除邮件，无法恢复。注意：相同邮件可能会被重新导入">
+                                <i class="fas fa-trash me-1"></i>彻底删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 分页导航 -->
+        {% if total_pages > 1 %}
+        <nav aria-label="邮件分页" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page - 1 }}&search={{ search }}&category={{ category }}&provider={{ provider }}&processed={{ processed }}">
+                        <i class="fas fa-chevron-left"></i> 上一页
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ p }}</span>
+                    </li>
+                    {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ p }}&search={{ search }}&category={{ category }}&provider={{ provider }}&processed={{ processed }}">{{ p }}</a>
+                    </li>
+                    {% elif p == 4 and page > 6 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% elif p == total_pages - 3 and page < total_pages - 5 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page + 1 }}&search={{ search }}&category={{ category }}&provider={{ provider }}&processed={{ processed }}">
+                        下一页 <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <!-- 空状态 -->
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-trash-restore text-muted" style="font-size: 4rem;"></i>
+            </div>
+            <h4 class="text-muted">回收站是空的</h4>
+            <p class="text-muted">没有找到已删除的邮件</p>
+            <a href="{{ url_for('emails') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-1"></i>返回邮件列表
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 邮件详情模态框 -->
+<div class="modal fade" id="emailDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">邮件详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="emailDetailContent">
+                <!-- 邮件详情内容将通过JavaScript加载 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 邮件详情模态框 -->
+<div class="modal fade" id="emailDetailModal" tabindex="-1" aria-labelledby="emailDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient-primary text-white">
+                <h5 class="modal-title" id="emailDetailModalLabel">
+                    <i class="fas fa-envelope-open me-2"></i>邮件详情
+                </h5>
+                <div class="d-flex">
+                    <button type="button" class="btn btn-sm btn-outline-light me-2" id="fullscreenToggleBtn" onclick="toggleFullscreen()" title="全屏/退出全屏">
+                        <i class="fas fa-expand" id="fullscreenIcon"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+            </div>
+            <div class="modal-body" id="emailDetailContent">
+                <!-- 邮件详情内容将通过JavaScript加载 -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3 text-muted">正在加载邮件详情...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>关闭
+                </button>
+                <button type="button" class="btn restore-btn" id="restoreEmailBtn" onclick="restoreCurrentEmail()" style="display: none;">
+                    <i class="fas fa-undo me-1"></i>恢复邮件
+                </button>
+                <button type="button" class="btn purge-btn" id="purgeEmailBtn" onclick="purgeCurrentEmail()" style="display: none;">
+                    <i class="fas fa-trash me-1"></i>彻底删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 悬浮帮助按钮 -->
+<button class="help-btn" onclick="showFloatingTooltip()" title="查看回收站使用说明">
+    <i class="fas fa-question"></i>
+</button>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- 性能优化组件JS -->
+<script src="{{ url_for('static', filename='js/performance/frontend_cache.js') }}"></script>
+<script src="{{ url_for('static', filename='js/performance/smart_pagination.js') }}"></script>
+<script src="{{ url_for('static', filename='js/performance/virtual_scroll.js') }}"></script>
+
+<script>
+// 展开/收起邮件
+function toggleEmailExpand(element) {
+    const emailItem = element.closest('.email-item-compact');
+    const contentArea = emailItem.querySelector('.email-content-expanded');
+    const expandIcon = emailItem.querySelector('.expand-icon');
+    
+    if (!contentArea || !expandIcon) {
+        console.error('找不到展开内容区域或展开图标');
+        return;
+    }
+    
+    if (emailItem.classList.contains('expanded')) {
+        // 收起
+        emailItem.classList.remove('expanded');
+        contentArea.style.display = 'none';
+        expandIcon.style.transform = 'rotate(0deg)';
+    } else {
+        // 展开
+        emailItem.classList.add('expanded');
+        contentArea.style.display = 'block';
+        expandIcon.style.transform = 'rotate(90deg)';
+    }
+}
+
+// 展开全部
+document.querySelector('.expand-all-btn').addEventListener('click', function() {
+    const emailItems = document.querySelectorAll('.email-item-compact');
+    emailItems.forEach(item => {
+        const contentArea = item.querySelector('.email-content-expanded');
+        const expandIcon = item.querySelector('.expand-icon');
+        
+        if (contentArea && expandIcon) {
+            item.classList.add('expanded');
+            contentArea.style.display = 'block';
+            expandIcon.style.transform = 'rotate(90deg)';
+        }
+    });
+    
+    this.style.display = 'none';
+    document.querySelector('.collapse-all-btn').style.display = 'inline-block';
+});
+
+// 收起全部
+document.querySelector('.collapse-all-btn').addEventListener('click', function() {
+    const emailItems = document.querySelectorAll('.email-item-compact');
+    emailItems.forEach(item => {
+        const contentArea = item.querySelector('.email-content-expanded');
+        const expandIcon = item.querySelector('.expand-icon');
+        
+        if (contentArea && expandIcon) {
+            item.classList.remove('expanded');
+            contentArea.style.display = 'none';
+            expandIcon.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    this.style.display = 'none';
+    document.querySelector('.expand-all-btn').style.display = 'inline-block';
+});
+
+// 恢复邮件
+function restoreEmail(emailId) {
+    if (!confirm('确定要恢复这封邮件吗？\n\n恢复后：\n• 邮件将重新出现在邮件列表中\n• 可以正常查看和处理\n• 仍然会阻止相同邮件重新导入')) {
+        return;
+    }
+    
+    fetch(`/api/emails/${emailId}/restore`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.status === 401 || response.url.includes('/login')) {
+            showAlert('warning', '请先登录');
+            setTimeout(() => window.location.href = '/login', 1000);
+            return null;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data === null) return;
+        
+        if (data && data.success) {
+            showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else if (data) {
+            showAlert('danger', data.error || '恢复失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error restoring email:', error);
+        showAlert('danger', '恢复失败: ' + error.message);
+    });
+}
+
+// 彻底删除邮件
+function purgeEmail(emailId) {
+    if (!confirm('⚠️ 警告：彻底删除后邮件将无法恢复！\n\n彻底删除后：\n• 邮件将被永久删除，无法恢复\n• 相同邮件可能会被重新导入\n• 建议只对严重问题邮件使用\n\n确定要彻底删除这封邮件吗？')) {
+        return;
+    }
+    
+    fetch(`/api/emails/${emailId}/purge`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.status === 401 || response.url.includes('/login')) {
+            showAlert('warning', '请先登录');
+            setTimeout(() => window.location.href = '/login', 1000);
+            return null;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data === null) return;
+        
+        if (data && data.success) {
+            showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else if (data) {
+            showAlert('danger', data.error || '删除失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error purging email:', error);
+        showAlert('danger', '删除失败: ' + error.message);
+    });
+}
+
+// 查看邮件详情
+function showEmailDetail(emailId) {
+    fetch(`/api/emails/${emailId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const email = data.email;
+            const modalContent = document.getElementById('emailDetailContent');
+            
+            modalContent.innerHTML = `
+                <div class="row">
+                    <div class="col-12">
+                        <h6>邮件信息</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>主题：</strong></td><td>${email.subject}</td></tr>
+                            <tr><td><strong>发件人：</strong></td><td>${email.sender}</td></tr>
+                            <tr><td><strong>日期：</strong></td><td>${email.date}</td></tr>
+                            <tr><td><strong>服务商：</strong></td><td>${email.provider || '未知'}</td></tr>
+                            <tr><td><strong>分类：</strong></td><td>${email.category || '未分类'}</td></tr>
+                            <tr><td><strong>状态：</strong></td><td>${email.processed ? '已处理' : '未处理'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                
+                ${email.ai_summary ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6 class="text-primary"><i class="fas fa-robot me-1"></i>AI摘要</h6>
+                        <div class="bg-light p-3 rounded">${email.ai_summary}</div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>邮件内容</h6>
+                        <div class="border p-3 rounded" style="max-height: 400px; overflow-y: auto;">
+                            ${email.body_html || email.body || '无内容'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('emailDetailModal'));
+            modal.show();
+        } else {
+            showAlert('danger', '获取邮件详情失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching email detail:', error);
+        showAlert('danger', '获取邮件详情失败');
+    });
+}
+
+// 翻译邮件标题
+function translateTitle(button, title) {
+    const titleElement = button.parentElement.querySelector('.email-subject-compact');
+    
+    if (titleElement.classList.contains('translated-title')) {
+        // 已翻译，恢复原文
+        titleElement.textContent = title.length > 50 ? title.substring(0, 50) + '...' : title;
+        titleElement.classList.remove('translated-title');
+        button.innerHTML = '<i class="fas fa-language" style="font-size: 0.7rem;"></i>';
+        button.title = '翻译标题';
+        return;
+    }
+    
+    // 显示加载状态
+    button.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 0.7rem;"></i>';
+    button.disabled = true;
+    
+    fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            text: title,
+            target_lang: 'zh'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const translatedText = data.translated_text;
+            titleElement.textContent = translatedText.length > 50 ? translatedText.substring(0, 50) + '...' : translatedText;
+            titleElement.classList.add('translated-title');
+            titleElement.title = translatedText;
+            button.innerHTML = '<i class="fas fa-undo" style="font-size: 0.7rem;"></i>';
+            button.title = '显示原文';
+        } else {
+            showAlert('warning', '翻译失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        console.error('Translation error:', error);
+        showAlert('danger', '翻译服务暂时不可用');
+    })
+    .finally(() => {
+        button.disabled = false;
+        if (!button.innerHTML.includes('fa-undo')) {
+            button.innerHTML = '<i class="fas fa-language" style="font-size: 0.7rem;"></i>';
+        }
+    });
+}
+
+// 翻译整封邮件
+function translateEmail(emailId) {
+    showAlert('info', '翻译功能开发中...');
+}
+
+// 显示提示消息
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'info' ? 'info-circle' : 'times-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    const container = document.querySelector('.container');
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = alertHtml;
+    container.insertBefore(tempDiv.firstElementChild, container.firstElementChild);
+    
+    // 自动隐藏
+    setTimeout(() => {
+        const alert = container.querySelector('.alert');
+        if (alert) {
+            alert.classList.remove('show');
+            setTimeout(() => alert.remove(), 150);
+        }
+    }, 5000);
+}
+
+// 自动提交搜索表单
+let searchTimeout;
+document.getElementById('search').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        this.form.submit();
+    }, 1000);
+});
+
+// 自动提交筛选表单
+document.getElementById('category').addEventListener('change', function() {
+    this.form.submit();
+});
+
+document.getElementById('provider').addEventListener('change', function() {
+    this.form.submit();
+});
+
+document.getElementById('processed').addEventListener('change', function() {
+    this.form.submit();
+});
+
+// 悬浮提醒控制函数
+function showFloatingTooltip() {
+    const tooltip = document.getElementById('floatingTooltip');
+    tooltip.style.display = 'block';
+    
+    // 3秒后自动隐藏
+    setTimeout(() => {
+        hideFloatingTooltip();
+    }, 8000);
+}
+
+function hideFloatingTooltip() {
+    const tooltip = document.getElementById('floatingTooltip');
+    tooltip.style.display = 'none';
+}
+
+// 页面加载时显示一次提醒（可选）
+document.addEventListener('DOMContentLoaded', function() {
+    // 检查是否是第一次访问回收站
+    const hasVisited = localStorage.getItem('recycle_bin_visited');
+    if (!hasVisited) {
+        setTimeout(() => {
+            showFloatingTooltip();
+            localStorage.setItem('recycle_bin_visited', 'true');
+        }, 1000);
+    }
+});
+
+// 全局变量
+let currentEmailId = null;
+let isFullscreen = false;
+
+// 查看邮件详情
+function viewEmailDetail(emailId) {
+    currentEmailId = emailId;
+    const modal = new bootstrap.Modal(document.getElementById('emailDetailModal'));
+    const contentDiv = document.getElementById('emailDetailContent');
+    const restoreBtn = document.getElementById('restoreEmailBtn');
+    const purgeBtn = document.getElementById('purgeEmailBtn');
+    
+    // 显示加载状态
+    contentDiv.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3 text-muted">正在加载邮件详情...</p>
+        </div>
+    `;
+    
+    // 隐藏操作按钮
+    restoreBtn.style.display = 'none';
+    purgeBtn.style.display = 'none';
+    
+    modal.show();
+    
+    // 发送AJAX请求获取邮件详情
+    fetch(`/api/emails/${emailId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(email => {
+            // 显示邮件详情
+            displayEmailDetail(email);
+            // 显示回收站操作按钮
+            restoreBtn.style.display = 'inline-block';
+            purgeBtn.style.display = 'inline-block';
+        })
+        .catch(error => {
+            console.error('Error fetching email detail:', error);
+            contentDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    获取邮件详情失败: ${error.message}
+                </div>
+            `;
+        });
+}
+
+// 显示邮件详情
+function displayEmailDetail(email) {
+    const contentDiv = document.getElementById('emailDetailContent');
+    
+    // 格式化收件人列表
+    const recipients = Array.isArray(email.recipients) ? email.recipients.join(', ') : email.recipients || '无';
+    
+    // 格式化日期
+    const emailDate = new Date(email.date).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    // 重要性标签
+    const importanceBadge = email.importance >= 3 ? 
+        '<span class="badge bg-danger me-2"><i class="fas fa-exclamation-triangle me-1"></i>重要</span>' :
+        email.importance === 2 ?
+        '<span class="badge bg-warning me-2"><i class="fas fa-exclamation-circle me-1"></i>中等</span>' : '';
+    
+    // 分类标签配置
+    const categoryConfig = {
+        'work': { name: '工作邮件', color: 'primary' },
+        'finance': { name: '财务邮件', color: 'success' },
+        'social': { name: '社交邮件', color: 'info' },
+        'shopping': { name: '购物邮件', color: 'warning' },
+        'news': { name: '资讯邮件', color: 'secondary' },
+        'education': { name: '教育学习', color: 'primary' },
+        'travel': { name: '旅行出行', color: 'info' },
+        'health': { name: '健康医疗', color: 'danger' },
+        'system': { name: '系统通知', color: 'dark' },
+        'spam': { name: '垃圾邮件', color: 'danger' },
+        'general': { name: '其他邮件', color: 'light text-dark' }
+    };
+    const category = categoryConfig[email.category] || categoryConfig['general'];
+    const categoryName = category.name;
+    const categoryColor = category.color;
+    
+    contentDiv.innerHTML = `
+        <div class="email-detail">
+            <!-- 邮件头部信息 -->
+            <div class="email-header-section mb-4">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h4 class="email-subject mb-3">
+                            ${importanceBadge}
+                            <span class="badge bg-danger me-2"><i class="fas fa-trash me-1"></i>已删除</span>
+                            ${email.subject || '无主题'}
+                        </h4>
+                        <div class="email-meta-info">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <strong class="text-muted">发件人:</strong>
+                                    <p class="mb-0">${formatSender(email.sender)}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong class="text-muted">收件人:</strong>
+                                    <p class="mb-0">${recipients}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong class="text-muted">接收时间:</strong>
+                                    <p class="mb-0">${emailDate}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong class="text-muted">邮箱账户:</strong>
+                                    <p class="mb-0">
+                                        ${email.account_email || '未知'}
+                                        <span class="badge bg-primary ms-2">${(email.provider || '').toUpperCase()}</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="email-status-badges">
+                            <div class="mb-2">
+                                <span class="badge bg-${categoryColor}">
+                                    <i class="fas fa-tag me-1"></i>${categoryName}
+                                </span>
+                            </div>
+                            <div class="mb-2">
+                                ${email.processed ? 
+                                    '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>已处理</span>' :
+                                    '<span class="badge bg-warning"><i class="fas fa-clock me-1"></i>未处理</span>'
+                                }
+                            </div>
+                            <div>
+                                <small class="text-muted">
+                                    <i class="fas fa-fingerprint me-1"></i>
+                                    ID: ${email.id}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI摘要部分 -->
+            ${email.ai_summary ? `
+            <div class="ai-summary-section mb-4">
+                <h5 class="section-title">
+                    <i class="fas fa-robot text-primary me-2"></i>AI智能摘要
+                </h5>
+                <div class="ai-summary-content bg-light p-3 rounded border-start border-primary border-3">
+                    <p class="mb-0">${email.ai_summary}</p>
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- 基础摘要部分 -->
+            ${email.summary && email.summary !== email.ai_summary ? `
+            <div class="basic-summary-section mb-4">
+                <h5 class="section-title">
+                    <i class="fas fa-file-alt text-secondary me-2"></i>基础摘要
+                </h5>
+                <div class="basic-summary-content bg-light p-3 rounded">
+                    <p class="mb-0">${email.summary}</p>
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- 邮件正文 -->
+            <div class="email-body-section">
+                <h5 class="section-title">
+                    <i class="fas fa-file-text text-info me-2"></i>邮件正文
+                    <span class="badge bg-light text-dark ms-2">${email.body ? email.body.length : 0} 字符</span>
+                </h5>
+                
+                <div class="email-body-content bg-white p-3 rounded border">
+                    <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">${email.body || '无正文内容'}</pre>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 格式化发件人显示
+function formatSender(sender) {
+    if (!sender) return '未知发件人';
+    
+    if (sender.includes('<') && sender.includes('>')) {
+        const parts = sender.split('<');
+        const name = parts[0].trim().replace(/['"]/g, '');
+        const email = parts[1].replace('>', '').trim();
+        return `<strong>${name}</strong> <span class="text-muted">&lt;${email}&gt;</span>`;
+    } else if (sender.includes('@')) {
+        const name = sender.split('@')[0];
+        return `<strong>${name}</strong> <span class="text-muted">&lt;${sender}&gt;</span>`;
+    } else {
+        return `<strong>${sender}</strong>`;
+    }
+}
+
+// 全屏切换功能
+function toggleFullscreen() {
+    const modal = document.getElementById('emailDetailModal');
+    const modalDialog = modal.querySelector('.modal-dialog');
+    const fullscreenIcon = document.getElementById('fullscreenIcon');
+    const fullscreenBtn = document.getElementById('fullscreenToggleBtn');
+    
+    if (!isFullscreen) {
+        // 进入全屏模式
+        modalDialog.classList.remove('modal-xl');
+        modalDialog.classList.add('modal-fullscreen');
+        fullscreenIcon.classList.remove('fa-expand');
+        fullscreenIcon.classList.add('fa-compress');
+        fullscreenBtn.title = '退出全屏';
+        isFullscreen = true;
+    } else {
+        // 退出全屏模式
+        modalDialog.classList.remove('modal-fullscreen');
+        modalDialog.classList.add('modal-xl');
+        fullscreenIcon.classList.remove('fa-compress');
+        fullscreenIcon.classList.add('fa-expand');
+        fullscreenBtn.title = '全屏';
+        isFullscreen = false;
+    }
+}
+
+// 从详情模态框恢复当前邮件
+function restoreCurrentEmail() {
+    if (!currentEmailId) {
+        showAlert('warning', '没有选择邮件');
+        return;
+    }
+    restoreEmail(currentEmailId);
+}
+
+// 从详情模态框彻底删除当前邮件
+function purgeCurrentEmail() {
+    if (!currentEmailId) {
+        showAlert('warning', '没有选择邮件');
+        return;
+    }
+    purgeEmail(currentEmailId);
+}
+
+// 监听模态框关闭事件，重置全屏状态
+document.getElementById('emailDetailModal').addEventListener('hidden.bs.modal', function () {
+    if (isFullscreen) {
+        // 重置全屏状态
+        const modalDialog = this.querySelector('.modal-dialog');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+        const fullscreenBtn = document.getElementById('fullscreenToggleBtn');
+        
+        modalDialog.classList.remove('modal-fullscreen');
+        modalDialog.classList.add('modal-xl');
+        fullscreenIcon.classList.remove('fa-compress');
+        fullscreenIcon.classList.add('fa-expand');
+        fullscreenBtn.title = '全屏';
+        isFullscreen = false;
+    }
+});
+</script>
+{% endblock %}

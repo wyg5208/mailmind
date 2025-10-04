@@ -1,0 +1,1485 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - AI邮件简报系统{% endblock %}
+
+{% block content %}
+<!-- 页面标题和统计卡片 -->
+<div class="row mb-4">
+    {% if stats %}
+    <div class="col-12">
+        <div class="row">
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-primary bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-envelope text-primary"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-primary mb-0 me-2">{{ stats.total_emails }}</h6>
+                            <small class="stat-label-mini text-muted">总邮件数</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-success bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-check-circle text-success"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-success mb-0 me-2">{{ stats.processed_emails }}</h6>
+                            <small class="stat-label-mini text-muted">已处理</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-info bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-calendar-day text-info"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-info mb-0 me-2">{{ stats.today_emails }}</h6>
+                            <small class="stat-label-mini text-muted">今日邮件</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-warning bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-user-cog text-warning"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-warning mb-0 me-2">{{ stats.active_accounts }}</h6>
+                            <small class="stat-label-mini text-muted">活跃账户</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 最新简报 -->
+<div class="row">
+    <div class="col-12">
+        {% if digest %}
+        <div class="digest-card card border-0 shadow-sm mb-4">
+            <div class="card-header bg-gradient-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title mb-1">
+                            <i class="fas fa-newspaper me-2"></i>{{ digest.title or '最新邮件简报' }}
+                        </h4>
+                        <p class="card-subtitle mb-0 opacity-75">
+                            <i class="fas fa-clock me-1"></i>
+                            生成时间: <span id="digest-time">{{ digest.created_at[:19].replace('T', ' ') }}</span>
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-light text-primary fs-6 px-3 py-2">
+                            <i class="fas fa-envelope me-1"></i>{{ digest.email_count }} 封邮件
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- AI智能助理摘要 -->
+                {% if digest.summary %}
+                <div class="ai-digest-summary mb-4">
+                    <div class="digest-summary-card">
+                        <div class="summary-header">
+                            <div class="d-flex align-items-center">
+                                <div class="ai-assistant-avatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <div class="ms-3 flex-grow-1">
+                                    <h5 class="assistant-name mb-0">AI智能助理</h5>
+                                    <small class="text-muted">您的贴心邮件秘书</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" id="translate-digest-btn" onclick="translateDigestSummary()" title="翻译摘要">
+                                    <i class="fas fa-language me-1"></i>翻译
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-content">
+                            <div class="summary-text markdown-body" id="digest-summary-text">
+                                {{ digest.summary }}
+                            </div>
+                        </div>
+                        
+                        <!-- 关键信息卡片 -->
+                        <div class="key-info-cards mt-3" id="digest-key-info">
+                            <!-- 这里通过JavaScript动态填充 -->
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 分类邮件展示 -->
+                {% if digest.content and digest.content.categories %}
+                    {% for category, emails in digest.content.categories.items() %}
+                        {% if emails %}
+                        <div class="category-section mb-3">
+                            <div class="category-header d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="category-title mb-0">
+                                    <i class="fas fa-{{ 'exclamation-triangle text-danger' if category == 'important' else 'briefcase text-primary' if category == 'work' else 'dollar-sign text-success' if category == 'finance' else 'users text-info' if category == 'social' else 'shopping-cart text-warning' if category == 'shopping' else 'newspaper text-secondary' if category == 'news' else 'folder-open text-muted' }} me-2"></i>
+                                    {{ {'important': '重要邮件', 'work': '工作邮件', 'finance': '财务邮件', 'social': '社交邮件', 'shopping': '购物邮件', 'news': '资讯邮件', 'general': '其他邮件'}[category] }}
+                                    <span class="badge bg-secondary ms-2">{{ emails|length }}</span>
+                                </h5>
+                                <div class="category-controls">
+                                    <button class="btn btn-sm btn-outline-secondary expand-all-btn" data-category="{{ category }}" title="展开所有">
+                                        <i class="fas fa-chevron-down"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary collapse-all-btn" data-category="{{ category }}" title="收起所有" style="display: none;">
+                                        <i class="fas fa-chevron-up"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="emails-list" data-category="{{ category }}">
+                                {% for email in emails %}
+                                <div class="email-item-compact card border-start border-{{ 'danger' if category == 'important' else 'primary' if category == 'work' else 'success' if category == 'finance' else 'info' if category == 'social' else 'warning' if category == 'shopping' else 'secondary' if category == 'news' else 'muted' }} border-2 mb-1" data-email-id="{{ email.id|default(0) }}">
+                                    <!-- 紧凑标题行 -->
+                                    <div class="email-header-compact card-body py-2 px-3 cursor-pointer" onclick="toggleEmailExpand(this)">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="email-title-section flex-grow-1 me-2" style="min-width: 0;">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-chevron-right expand-icon me-2 text-muted" style="font-size: 0.7rem; transition: transform 0.2s;"></i>
+                                                    {% if email.importance >= 3 %}
+                                                    <span class="badge bg-danger me-2" style="font-size: 0.6rem;">重要</span>
+                                                    {% elif email.importance == 2 %}
+                                                    <span class="badge bg-warning me-2" style="font-size: 0.6rem;">中等</span>
+                                                    {% endif %}
+                                                    <span class="email-subject-compact text-truncate" data-original-title="{{ email.subject }}">{{ email.subject }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="email-meta-compact d-flex align-items-center flex-shrink-0">
+                                                <small class="text-muted me-2 d-none d-md-inline">{{ email.time }}</small>
+                                                {% if email.provider %}
+                                                <span class="badge bg-light text-dark me-2 d-none d-sm-inline" style="font-size: 0.6rem;">{{ email.provider.upper() }}</span>
+                                                {% endif %}
+                                                <button class="btn btn-sm btn-outline-info translate-title-btn" data-email-id="{{ email.id|default(0) }}" data-translated="false" title="翻译标题" onclick="event.stopPropagation(); translateEmailTitle(this.dataset.emailId, this)" style="font-size: 0.6rem; padding: 0.1rem 0.3rem;">
+                                                    <i class="fas fa-language"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 展开内容区域 -->
+                                    <div class="email-content-expanded card-body pt-0 pb-2 px-3" style="display: none;">
+                                        <div class="border-top pt-2">
+                                            <p class="email-summary text-muted mb-2" style="font-size: 0.9rem;">{{ email.summary }}</p>
+                                            <div class="email-meta">
+                                                <small class="text-muted">
+                                                    {% if email.is_forwarded %}
+                                                        <i class="fas fa-share text-primary me-1" title="转发邮件"></i>
+                                                        <span class="badge bg-info me-1">转发</span>
+                                                        <strong>原:</strong> {{ email.original_sender or email.original_sender_email or email.sender_name }}
+                                                        <br>
+                                                        <small class="text-muted ms-4">
+                                                            由 {{ email.forwarded_by or email.sender_name }}
+                                                            {% if email.forwarded_by_email %}
+                                                                <span class="text-muted">&lt;{{ email.forwarded_by_email }}&gt;</span>
+                                                            {% endif %}
+                                                            转发
+                                                            {% if email.forward_level and email.forward_level > 1 %}
+                                                                <span class="badge bg-secondary ms-1">{{ email.forward_level }}次</span>
+                                                            {% endif %}
+                                                        </small>
+                                                    {% else %}
+                                                        <i class="fas fa-user me-1"></i>{{ email.sender_name }}
+                                                    {% endif %}
+                                                    {% if email.account_email %}
+                                                    <i class="fas fa-at ms-2 me-1"></i>{{ email.account_email }}
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <!-- 简化的邮件列表 -->
+                    {% if digest.content and digest.content.emails %}
+                    <div class="category-section mb-3">
+                        <div class="category-header d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="category-title mb-0">
+                                <i class="fas fa-envelope text-primary me-2"></i>邮件列表
+                                <span class="badge bg-secondary ms-2">{{ digest.content.emails|length }}</span>
+                            </h5>
+                            <div class="category-controls">
+                                <button class="btn btn-sm btn-outline-secondary expand-all-btn" data-category="general" title="展开所有">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary collapse-all-btn" data-category="general" title="收起所有" style="display: none;">
+                                    <i class="fas fa-chevron-up"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="emails-list" data-category="general">
+                            {% for email in digest.content.emails %}
+                            <div class="email-item-compact card border-start border-primary border-2 mb-1" data-email-id="{{ email.id|default(0) }}">
+                                <!-- 紧凑标题行 -->
+                                <div class="email-header-compact card-body py-2 px-3 cursor-pointer" onclick="toggleEmailExpand(this)">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="email-title-section flex-grow-1 me-2" style="min-width: 0;">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-chevron-right expand-icon me-2 text-muted" style="font-size: 0.7rem; transition: transform 0.2s;"></i>
+                                                <span class="email-subject-compact text-truncate" data-original-title="{{ email.subject }}">{{ email.subject }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="email-meta-compact d-flex align-items-center flex-shrink-0">
+                                            <small class="text-muted me-2 d-none d-md-inline">{{ email.date[11:16] if email.date|length > 16 else email.date }}</small>
+                                            <button class="btn btn-sm btn-outline-info translate-title-btn" data-email-id="{{ email.id|default(0) }}" data-translated="false" title="翻译标题" onclick="event.stopPropagation(); translateEmailTitle(this.dataset.emailId, this)" style="font-size: 0.6rem; padding: 0.1rem 0.3rem;">
+                                                <i class="fas fa-language"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 展开内容区域 -->
+                                <div class="email-content-expanded card-body pt-0 pb-2 px-3" style="display: none;">
+                                    <div class="border-top pt-2">
+                                        <p class="email-summary text-muted mb-2" style="font-size: 0.9rem;">{{ email.summary }}</p>
+                                        <div class="email-meta">
+                                            <small class="text-muted">
+                                                {% if email.is_forwarded %}
+                                                    <i class="fas fa-share text-primary me-1" title="转发邮件"></i>
+                                                    <span class="badge bg-info me-1">转发</span>
+                                                    <strong>原:</strong> {{ email.original_sender or email.original_sender_email or email.sender }}
+                                                    <br>
+                                                    <small class="text-muted ms-4">
+                                                        由 {{ email.forwarded_by or email.sender }}
+                                                        {% if email.forwarded_by_email %}
+                                                            <span class="text-muted">&lt;{{ email.forwarded_by_email }}&gt;</span>
+                                                        {% endif %}
+                                                        转发
+                                                        {% if email.forward_level and email.forward_level > 1 %}
+                                                            <span class="badge bg-secondary ms-1">{{ email.forward_level }}次</span>
+                                                        {% endif %}
+                                                    </small>
+                                                {% else %}
+                                                    <i class="fas fa-user me-1"></i>{{ email.sender }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        处理率: {{ stats.processing_rate if stats else 0 }}%
+                    </small>
+                    <div>
+                        <a href="{{ url_for('emails') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-list me-1"></i>查看所有邮件
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- 无简报时的展示 -->
+        <div class="no-digest-card card border-0 shadow-sm text-center py-5">
+            <div class="card-body">
+                <div class="empty-state">
+                    <i class="fas fa-inbox text-muted display-1 mb-4"></i>
+                    <h3 class="text-muted mb-3">暂无邮件简报</h3>
+                    <p class="text-muted mb-4">系统会自动处理新邮件并生成简报，或者您可以手动触发处理。</p>
+                    <button class="btn btn-primary btn-lg" onclick="triggerProcessing()">
+                        <i class="fas fa-play me-2"></i>开始处理邮件
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 系统信息 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="system-info card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>系统信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="info-item">
+                            <strong class="text-muted">检查间隔:</strong>
+                            <span class="ms-2">{{ user_configs.get('check_interval_minutes', config.CHECK_INTERVAL_MINUTES if config else 30) }} 分钟</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="info-item">
+                            <strong class="text-muted">最大处理数:</strong>
+                            <span class="ms-2">{{ user_configs.get('max_emails_per_account', config.MAX_EMAILS_PER_ACCOUNT if config else 20) }} 封/账户</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="info-item">
+                            <strong class="text-muted">AI服务商:</strong>
+                            <span class="ms-2 badge bg-info">{{ config.AI_PROVIDER.upper() if config else 'GLM' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if stats and stats.recent_activity %}
+                <hr>
+                <h6 class="text-muted mb-3">最近7天活动</h6>
+                <div class="activity-chart">
+                    {% for activity in stats.recent_activity %}
+                    <div class="activity-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span class="text-muted">{{ activity.date[:10] }}</span>
+                        <span class="badge bg-primary">{{ activity.count }} 封</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* AI智能摘要卡片样式 */
+.ai-digest-summary {
+    margin-bottom: 2rem;
+}
+
+.digest-summary-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.digest-summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 50px rgba(102, 126, 234, 0.4);
+}
+
+.summary-header {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ai-assistant-avatar {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+    animation: pulse-avatar 2s infinite;
+}
+
+@keyframes pulse-avatar {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 8px 20px rgba(245, 87, 108, 0.6);
+    }
+}
+
+.ai-assistant-avatar i {
+    font-size: 28px;
+    color: white;
+}
+
+.assistant-name {
+    color: white;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.summary-header small {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.summary-header .btn-outline-primary {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+}
+
+.summary-header .btn-outline-primary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: white;
+}
+
+.summary-content {
+    background: white;
+    padding: 2rem;
+}
+
+.summary-text {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: #2d3748;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Markdown样式支持 */
+.summary-text.markdown-body {
+    white-space: normal;
+}
+
+.summary-text.markdown-body h1,
+.summary-text.markdown-body h2,
+.summary-text.markdown-body h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.summary-text.markdown-body h1 {
+    font-size: 1.8rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.summary-text.markdown-body h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.3rem;
+}
+
+.summary-text.markdown-body h3 {
+    font-size: 1.25rem;
+}
+
+.summary-text.markdown-body p {
+    margin-bottom: 1rem;
+}
+
+.summary-text.markdown-body strong {
+    font-weight: 600;
+    color: #1a202c;
+}
+
+.summary-text.markdown-body em {
+    font-style: italic;
+    color: #4a5568;
+}
+
+.summary-text.markdown-body ul,
+.summary-text.markdown-body ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.summary-text.markdown-body li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+.summary-text.markdown-body code {
+    background-color: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 3px;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.9em;
+    font-family: 'Courier New', monospace;
+}
+
+.summary-text.markdown-body pre {
+    background-color: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.summary-text.markdown-body pre code {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+
+.summary-text.markdown-body blockquote {
+    border-left: 4px solid #4F46E5;
+    padding-left: 1rem;
+    margin-left: 0;
+    color: #4a5568;
+    font-style: italic;
+}
+
+.summary-text.markdown-body hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 1.5rem 0;
+}
+
+.summary-text.markdown-body a {
+    color: #4F46E5;
+    text-decoration: none;
+}
+
+.summary-text.markdown-body a:hover {
+    text-decoration: underline;
+}
+
+/* 关键信息卡片 */
+.key-info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    padding: 0 2rem 2rem;
+}
+
+.key-info-card {
+    border-radius: 15px;
+    padding: 1.25rem;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.key-info-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* 各类型卡片的渐变背景 */
+.key-info-card.key-info-urgent { 
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+    color: white; 
+}
+
+.key-info-card.key-info-meeting { 
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+    color: white; 
+}
+
+.key-info-card.key-info-task { 
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); 
+    color: white; 
+}
+
+.key-info-card.key-info-deadline { 
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+    color: white; 
+}
+
+.key-info-card.key-info-finance { 
+    background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); 
+    color: white; 
+}
+
+.key-info-icon {
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 0.75rem;
+    backdrop-filter: blur(5px);
+}
+
+.key-info-label {
+    font-size: 0.85rem;
+    color: white;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.key-info-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.key-info-desc {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 0.25rem;
+}
+
+/* 翻译后的样式 */
+.summary-text.translated {
+    background: linear-gradient(to right, #e8f5e8, #f0f9f0);
+    padding: 1rem;
+    border-radius: 10px;
+    border-left: 4px solid #28a745;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .key-info-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .summary-header {
+        padding: 1rem;
+    }
+    
+    .summary-content {
+        padding: 1.5rem;
+    }
+    
+    .ai-assistant-avatar {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .ai-assistant-avatar i {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .key-info-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 迷你统计卡片样式 */
+.stat-card-mini {
+    transition: transform 0.2s ease;
+    height: 60px; /* 原来高度的四分之一 */
+}
+
+.stat-card-mini:hover {
+    transform: translateY(-2px);
+}
+
+.stat-card-mini .card-body {
+    padding: 0.75rem;
+    white-space: nowrap; /* 防止文字换行 */
+    overflow: hidden; /* 隐藏溢出内容 */
+}
+
+.stat-icon-mini {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stat-icon-mini i {
+    font-size: 0.9rem;
+}
+
+.stat-number-mini {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-label-mini {
+    font-size: 0.75rem;
+    line-height: 1.1;
+}
+
+/* 紧凑邮件卡片样式 */
+.email-item-compact {
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.email-item-compact:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.email-header-compact {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.email-header-compact:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+.email-subject-compact {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.expand-icon {
+    transition: transform 0.2s ease;
+}
+
+.email-item-compact.expanded .expand-icon {
+    transform: rotate(90deg);
+}
+
+.email-content-expanded {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 200px;
+    }
+}
+
+.category-controls .btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+    border-width: 1px;
+}
+
+.translate-title-btn {
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.translate-title-btn:hover {
+    opacity: 1;
+}
+
+/* 响应式调整 */
+@media (max-width: 991.98px) {
+    .stat-card-mini {
+        height: 55px;
+    }
+    
+    .stat-number-mini {
+        font-size: 1rem;
+    }
+    
+    .stat-label-mini {
+        font-size: 0.7rem;
+    }
+    
+    .email-subject-compact {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .stat-card-mini {
+        height: 50px;
+    }
+    
+    .stat-icon-mini {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .stat-icon-mini i {
+        font-size: 0.8rem;
+    }
+    
+    .email-header-compact .card-body {
+        padding: 0.5rem !important;
+    }
+    
+    .email-subject-compact {
+        font-size: 0.8rem;
+    }
+    
+    .translate-title-btn {
+        font-size: 0.5rem !important;
+        padding: 0.05rem 0.2rem !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 定时刷新统计信息
+function refreshStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            // 更新统计数据（使用新的迷你卡片选择器）
+            if (data.total_emails !== undefined) {
+                const totalElement = document.querySelector('.stat-number-mini.text-primary');
+                if (totalElement) totalElement.textContent = data.total_emails;
+            }
+            if (data.processed_emails !== undefined) {
+                const processedElement = document.querySelector('.stat-number-mini.text-success');
+                if (processedElement) processedElement.textContent = data.processed_emails;
+            }
+            if (data.today_emails !== undefined) {
+                const todayElement = document.querySelector('.stat-number-mini.text-info');
+                if (todayElement) todayElement.textContent = data.today_emails;
+            }
+            if (data.active_accounts !== undefined) {
+                const accountsElement = document.querySelector('.stat-number-mini.text-warning');
+                if (accountsElement) accountsElement.textContent = data.active_accounts;
+            }
+        })
+        .catch(error => console.log('Stats refresh failed:', error));
+}
+
+// 每5分钟刷新一次统计信息
+setInterval(refreshStats, 5 * 60 * 1000);
+
+// 转换时间显示为东八区时间
+function convertToChineseTime() {
+    const digestTimeElement = document.getElementById('digest-time');
+    if (digestTimeElement) {
+        const timeText = digestTimeElement.textContent;
+        try {
+            // 数据库中存储的是UTC时间，使用toLocaleString自动转换为本地时区
+            const utcTime = new Date(timeText + 'Z'); // 添加Z表示UTC时间
+            
+            const options = {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Shanghai' // 明确指定东八区时区
+            };
+            
+            digestTimeElement.textContent = utcTime.toLocaleString('zh-CN', options);
+        } catch (e) {
+            console.log('Time conversion failed:', e);
+        }
+    }
+}
+
+// 简单的Markdown渲染函数
+function renderMarkdown(text) {
+    if (!text) return '';
+    
+    // 转义HTML特殊字符
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    
+    let html = text;
+    
+    // 处理代码块 (```)
+    html = html.replace(/```(\w+)?\n([\s\S]*?)```/g, function(match, lang, code) {
+        return '<pre><code>' + escapeHtml(code.trim()) + '</code></pre>';
+    });
+    
+    // 处理行内代码 (`)
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // 处理标题
+    html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+    
+    // 处理加粗 (**)
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    
+    // 处理斜体 (*)
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    
+    // 处理删除线 (~~)
+    html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+    
+    // 处理链接 [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    
+    // 处理无序列表
+    html = html.replace(/^\s*[-*+]\s+(.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    
+    // 处理有序列表
+    html = html.replace(/^\s*\d+\.\s+(.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, function(match) {
+        // 只包装还未被ul包装的li
+        if (!match.includes('<ul>')) {
+            return '<ol>' + match + '</ol>';
+        }
+        return match;
+    });
+    
+    // 处理引用块 (>)
+    html = html.replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>');
+    
+    // 处理水平线 (---)
+    html = html.replace(/^---$/gm, '<hr>');
+    
+    // 处理段落（双换行符分隔）
+    const paragraphs = html.split(/\n\n+/);
+    html = paragraphs.map(p => {
+        p = p.trim();
+        // 跳过已经是HTML标签的内容
+        if (p.startsWith('<') || p === '') {
+            return p;
+        }
+        // 处理单换行为<br>
+        p = p.replace(/\n/g, '<br>');
+        return '<p>' + p + '</p>';
+    }).join('\n');
+    
+    return html;
+}
+
+// 渲染简报摘要的Markdown
+function renderDigestMarkdown() {
+    const summaryElement = document.getElementById('digest-summary-text');
+    if (!summaryElement) return;
+    
+    const originalText = summaryElement.textContent;
+    const renderedHtml = renderMarkdown(originalText);
+    
+    // 保存原始文本（用于翻译等功能）
+    summaryElement.setAttribute('data-original-text', originalText);
+    
+    // 渲染Markdown
+    summaryElement.innerHTML = renderedHtml;
+}
+
+// 解析并渲染关键信息卡片
+function renderKeyInfoCards() {
+    const keyInfoContainer = document.getElementById('digest-key-info');
+    const summaryText = document.getElementById('digest-summary-text');
+    
+    if (!keyInfoContainer || !summaryText) return;
+    
+    // 使用原始文本或当前文本内容
+    const text = summaryText.getAttribute('data-original-text') || summaryText.textContent;
+    const cards = [];
+    
+    // 提取紧急邮件数量
+    const urgentMatch = text.match(/(\d+)\s*封?\s*紧急/);
+    if (urgentMatch && parseInt(urgentMatch[1]) > 0) {
+        cards.push({
+            icon: 'fa-exclamation-triangle',
+            className: 'key-info-urgent',
+            label: '紧急邮件',
+            value: urgentMatch[1],
+            desc: '需优先处理'
+        });
+    }
+    
+    // 提取会议数量
+    const meetingMatch = text.match(/(\d+)\s*个?\s*会议/);
+    if (meetingMatch && parseInt(meetingMatch[1]) > 0) {
+        cards.push({
+            icon: 'fa-calendar-alt',
+            className: 'key-info-meeting',
+            label: '会议安排',
+            value: meetingMatch[1],
+            desc: '今日日程'
+        });
+    }
+    
+    // 提取任务数量
+    const taskMatch = text.match(/(\d+)\s*项?\s*(?:待办)?任务/);
+    if (taskMatch && parseInt(taskMatch[1]) > 0) {
+        cards.push({
+            icon: 'fa-tasks',
+            className: 'key-info-task',
+            label: '待办任务',
+            value: taskMatch[1],
+            desc: '等待处理'
+        });
+    }
+    
+    // 提取截止日期
+    const deadlineMatch = text.match(/(\d+)\s*个?\s*(?:事项)?.*(?:截止|deadline)/);
+    if (deadlineMatch && parseInt(deadlineMatch[1]) > 0) {
+        cards.push({
+            icon: 'fa-clock',
+            className: 'key-info-deadline',
+            label: '临近截止',
+            value: deadlineMatch[1],
+            desc: '注意时间'
+        });
+    }
+    
+    // 提取财务相关
+    const financeMatch = text.match(/(\d+)\s*封?\s*财务/);
+    if (financeMatch && parseInt(financeMatch[1]) > 0) {
+        cards.push({
+            icon: 'fa-coins',
+            className: 'key-info-finance',
+            label: '财务邮件',
+            value: financeMatch[1],
+            desc: '账单提醒'
+        });
+    }
+    
+    // 渲染卡片
+    if (cards.length > 0) {
+        keyInfoContainer.innerHTML = cards.map(card => `
+            <div class="key-info-card ${card.className}">
+                <div class="key-info-icon">
+                    <i class="fas ${card.icon}"></i>
+                </div>
+                <div class="key-info-label">${card.label}</div>
+                <div class="key-info-value">${card.value}</div>
+                <div class="key-info-desc">${card.desc}</div>
+            </div>
+        `).join('');
+    }
+}
+
+// 翻译简报摘要
+function translateDigestSummary() {
+    const summaryElement = document.getElementById('digest-summary-text');
+    const buttonElement = document.getElementById('translate-digest-btn');
+    
+    if (!summaryElement || !buttonElement) {
+        showAlert('danger', '找不到摘要元素');
+        return;
+    }
+    
+    // 获取原始文本（未渲染的Markdown）
+    const originalText = summaryElement.getAttribute('data-original-text') || summaryElement.textContent;
+    if (!originalText || originalText.trim() === '') {
+        showAlert('warning', '没有摘要内容可以翻译');
+        return;
+    }
+    
+    const originalHtml = buttonElement.innerHTML;
+    const originalDisabled = buttonElement.disabled;
+    
+    // 显示翻译状态
+    buttonElement.disabled = true;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>翻译中...';
+    
+    // 调用翻译API
+    fetch('/api/translate-text', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            text: originalText
+        })
+    })
+    .then(response => {
+        // 检查是否返回HTML（登录页面）而不是JSON
+        const contentType = response.headers.get('content-type') || '';
+        if (response.status === 401 || response.url.includes('/login') || contentType.includes('text/html')) {
+            // 用户未登录，重定向到登录页面
+            showAlert('warning', '请先登录');
+            setTimeout(() => window.location.href = '/login', 1000);
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.success) {
+            if (data.translated) {
+                showAlert('success', '摘要翻译完成！');
+                // 更新原始文本和显示
+                summaryElement.setAttribute('data-original-text', data.translated_text);
+                // 渲染Markdown
+                const renderedHtml = renderMarkdown(data.translated_text);
+                summaryElement.innerHTML = renderedHtml;
+                // 添加翻译标记样式
+                summaryElement.classList.add('translated');
+                // 修改按钮文字为"已翻译"
+                buttonElement.innerHTML = '<i class="fas fa-check me-1"></i>已翻译';
+                buttonElement.classList.remove('btn-outline-primary');
+                buttonElement.classList.add('btn-success');
+                buttonElement.disabled = true;
+            } else {
+                showAlert('info', data.message || '摘要已经是中文或无需翻译');
+                buttonElement.innerHTML = '<i class="fas fa-check me-1"></i>无需翻译';
+                buttonElement.disabled = true;
+            }
+        } else if (data) {
+            showAlert('danger', data.error || '翻译失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error translating digest summary:', error);
+        showAlert('danger', '翻译失败: ' + error.message);
+    })
+    .finally(() => {
+        // 如果翻译失败，恢复按钮状态
+        if (buttonElement.innerHTML.includes('翻译中')) {
+            buttonElement.disabled = originalDisabled;
+            buttonElement.innerHTML = originalHtml;
+        }
+    });
+}
+
+// 翻译邮件摘要
+function translateEmailSummary(emailId, buttonElement) {
+    if (!emailId || emailId == '0') {
+        showAlert('warning', '此邮件暂不支持翻译功能');
+        return;
+    }
+    
+    const originalHtml = buttonElement.innerHTML;
+    const originalDisabled = buttonElement.disabled;
+    
+    // 显示翻译状态
+    buttonElement.disabled = true;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>翻译中...';
+    
+    fetch(`/api/emails/${emailId}/translate`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        // 检查是否返回HTML（登录页面）而不是JSON
+        const contentType = response.headers.get('content-type') || '';
+        if (response.status === 401 || response.url.includes('/login') || contentType.includes('text/html')) {
+            // 用户未登录，重定向到登录页面
+            showAlert('warning', '请先登录');
+            setTimeout(() => window.location.href = '/login', 1000);
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.success) {
+            if (data.translated) {
+                showAlert('success', '摘要翻译完成！');
+                // 更新页面中的摘要显示
+                updateEmailSummaryDisplay(emailId, data.summary);
+                // 修改按钮文字为"已翻译"
+                buttonElement.innerHTML = '<i class="fas fa-check me-1"></i>已翻译';
+                buttonElement.classList.remove('btn-outline-info');
+                buttonElement.classList.add('btn-success');
+                buttonElement.disabled = true;
+            } else {
+                showAlert('info', data.message || '摘要已经是中文或无需翻译');
+                buttonElement.innerHTML = '<i class="fas fa-check me-1"></i>无需翻译';
+                buttonElement.disabled = true;
+            }
+        } else if (data) {
+            showAlert('danger', data.error || '翻译失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error translating email:', error);
+        showAlert('danger', '翻译失败: ' + error.message);
+    })
+    .finally(() => {
+        // 如果翻译失败，恢复按钮状态
+        if (buttonElement.innerHTML.includes('翻译中')) {
+            buttonElement.disabled = originalDisabled;
+            buttonElement.innerHTML = originalHtml;
+        }
+    });
+}
+
+// 更新页面中的邮件摘要显示
+function updateEmailSummaryDisplay(emailId, newSummary) {
+    // 查找对应的邮件摘要元素并更新
+    const emailItems = document.querySelectorAll('.email-item');
+    emailItems.forEach(item => {
+        const button = item.querySelector(`button[onclick*="${emailId}"]`);
+        if (button) {
+            const summaryElement = item.querySelector('.email-summary');
+            if (summaryElement) {
+                summaryElement.textContent = newSummary;
+                // 添加翻译标记样式
+                summaryElement.classList.add('translated-summary');
+            }
+        }
+    });
+}
+
+// 显示警告消息的辅助函数（如果不存在的话）
+function showAlert(type, message) {
+    // 创建警告元素
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(alertDiv);
+    
+    // 自动移除
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+// 切换单个邮件展开/收起
+function toggleEmailExpand(headerElement) {
+    const emailItem = headerElement.closest('.email-item-compact');
+    const contentElement = emailItem.querySelector('.email-content-expanded');
+    const expandIcon = emailItem.querySelector('.expand-icon');
+    
+    if (emailItem.classList.contains('expanded')) {
+        // 收起
+        emailItem.classList.remove('expanded');
+        contentElement.style.display = 'none';
+        expandIcon.style.transform = 'rotate(0deg)';
+    } else {
+        // 展开
+        emailItem.classList.add('expanded');
+        contentElement.style.display = 'block';
+        expandIcon.style.transform = 'rotate(90deg)';
+    }
+}
+
+// 展开/收起分类下的所有邮件
+function toggleCategoryEmails(category, expand) {
+    const emailsList = document.querySelector(`.emails-list[data-category="${category}"]`);
+    if (!emailsList) return;
+    
+    const emailItems = emailsList.querySelectorAll('.email-item-compact');
+    const expandAllBtn = document.querySelector(`[data-category="${category}"].expand-all-btn`);
+    const collapseAllBtn = document.querySelector(`[data-category="${category}"].collapse-all-btn`);
+    
+    emailItems.forEach(emailItem => {
+        const contentElement = emailItem.querySelector('.email-content-expanded');
+        const expandIcon = emailItem.querySelector('.expand-icon');
+        
+        if (expand) {
+            emailItem.classList.add('expanded');
+            contentElement.style.display = 'block';
+            expandIcon.style.transform = 'rotate(90deg)';
+        } else {
+            emailItem.classList.remove('expanded');
+            contentElement.style.display = 'none';
+            expandIcon.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    // 切换按钮显示
+    if (expand) {
+        expandAllBtn.style.display = 'none';
+        collapseAllBtn.style.display = 'inline-block';
+    } else {
+        expandAllBtn.style.display = 'inline-block';
+        collapseAllBtn.style.display = 'none';
+    }
+}
+
+// 翻译邮件标题（支持翻译和恢复）
+function translateEmailTitle(emailId, buttonElement) {
+    console.log('translateEmailTitle called with emailId:', emailId);
+    
+    if (!emailId || emailId == '0') {
+        showAlert('warning', '此邮件暂不支持翻译功能');
+        return;
+    }
+    
+    // 检查是否已翻译（用于恢复功能）
+    const isTranslated = buttonElement.getAttribute('data-translated') === 'true';
+    
+    // 获取当前标题文本
+    const emailItem = buttonElement.closest('.email-item-compact');
+    console.log('Found email item:', emailItem);
+    
+    if (!emailItem) {
+        showAlert('danger', '找不到邮件元素');
+        return;
+    }
+    
+    const titleElement = emailItem.querySelector('.email-subject-compact');
+    console.log('Found title element:', titleElement);
+    
+    if (!titleElement) {
+        showAlert('danger', '找不到邮件标题元素');
+        return;
+    }
+    
+    // 如果已翻译，执行恢复操作
+    if (isTranslated) {
+        const originalTitle = titleElement.getAttribute('data-original-title');
+        if (originalTitle) {
+            titleElement.textContent = originalTitle;
+            titleElement.classList.remove('translated-title');
+            buttonElement.setAttribute('data-translated', 'false');
+            buttonElement.innerHTML = '<i class="fas fa-language"></i>';
+            buttonElement.classList.remove('btn-warning');
+            buttonElement.classList.add('btn-outline-info');
+            buttonElement.title = '翻译标题';
+            showAlert('success', '已恢复原始标题');
+        }
+        return;
+    }
+    
+    const currentTitle = titleElement.textContent.trim();
+    console.log('Current title:', currentTitle);
+    
+    if (!currentTitle) {
+        showAlert('warning', '没有找到邮件标题');
+        return;
+    }
+    
+    const originalHtml = buttonElement.innerHTML;
+    const originalDisabled = buttonElement.disabled;
+    
+    // 显示翻译状态
+    buttonElement.disabled = true;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    // 使用通用文本翻译API（与AI摘要翻译相同）
+    fetch('/api/translate-text', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            text: currentTitle
+        })
+    })
+    .then(response => {
+        // 检查是否返回HTML（登录页面）而不是JSON
+        const contentType = response.headers.get('content-type') || '';
+        if (response.status === 401 || response.url.includes('/login') || contentType.includes('text/html')) {
+            // 用户未登录，重定向到登录页面
+            showAlert('warning', '请先登录');
+            setTimeout(() => window.location.href = '/login', 1000);
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Translation response:', data);
+        if (data && data.success) {
+            if (data.translated) {
+                showAlert('success', '标题翻译完成！');
+                // 更新标题显示
+                titleElement.textContent = data.translated_text;
+                // 添加翻译标记样式
+                titleElement.classList.add('translated-title');
+                // 修改按钮为恢复状态
+                buttonElement.setAttribute('data-translated', 'true');
+                buttonElement.innerHTML = '<i class="fas fa-undo"></i>';
+                buttonElement.classList.remove('btn-outline-info');
+                buttonElement.classList.add('btn-warning');
+                buttonElement.title = '恢复原标题';
+                buttonElement.disabled = false;
+            } else {
+                showAlert('info', data.message || '标题已经是中文或无需翻译');
+                buttonElement.innerHTML = '<i class="fas fa-check"></i>';
+                buttonElement.disabled = true;
+            }
+        } else if (data) {
+            showAlert('danger', data.error || '翻译失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error translating email title:', error);
+        showAlert('danger', '翻译失败: ' + error.message);
+    })
+    .finally(() => {
+        // 如果翻译失败，恢复按钮状态
+        if (buttonElement.innerHTML.includes('fa-spin')) {
+            buttonElement.disabled = originalDisabled;
+            buttonElement.innerHTML = originalHtml;
+        }
+    });
+}
+
+
+// 页面加载时转换时间和绑定事件
+document.addEventListener('DOMContentLoaded', function() {
+    convertToChineseTime();
+    
+    // 渲染Markdown格式的摘要
+    renderDigestMarkdown();
+    
+    // 渲染关键信息卡片
+    renderKeyInfoCards();
+    
+    // 绑定展开/收起所有按钮事件
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.expand-all-btn')) {
+            const button = e.target.closest('.expand-all-btn');
+            const category = button.getAttribute('data-category');
+            toggleCategoryEmails(category, true);
+        } else if (e.target.closest('.collapse-all-btn')) {
+            const button = e.target.closest('.collapse-all-btn');
+            const category = button.getAttribute('data-category');
+            toggleCategoryEmails(category, false);
+        } else if (e.target.closest('.translate-btn')) {
+            // 保留原有的翻译摘要功能
+            const button = e.target.closest('.translate-btn');
+            const emailId = button.getAttribute('data-email-id');
+            translateEmailSummary(emailId, button);
+        }
+    });
+});
+</script>
+
+<style>
+/* 翻译后的摘要样式 */
+.translated-summary {
+    background-color: #e8f5e8;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    border-left: 3px solid #28a745;
+}
+
+/* 翻译后的标题样式 */
+.translated-title {
+    background-color: #e8f5e8;
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.2rem;
+    border-left: 2px solid #28a745;
+}
+
+/* 翻译按钮样式优化 */
+.btn-sm {
+    font-size: 0.775rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.email-item .btn {
+    transition: all 0.2s ease;
+}
+
+.email-item .btn:hover {
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}

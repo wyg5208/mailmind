@@ -1,0 +1,179 @@
+/**
+ * AI邮件简报系统 - 异步任务进度条样式
+ */
+
+/* 进度条容器 */
+.email-processing-progress {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 500px;
+    max-width: 90%;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    z-index: 9999;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* 进度条标题栏 */
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.progress-header h4 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+/* 进度条容器 */
+.progress-bar-container {
+    width: 100%;
+    height: 24px;
+    background: #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+}
+
+/* 进度条 */
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    border-radius: 12px;
+    transition: width 0.5s ease-out, background 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 进度条动画效果 */
+.progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* 状态文字 */
+.progress-status {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+/* 百分比显示 */
+.progress-percentage {
+    font-size: 16px;
+    font-weight: 600;
+    color: #007bff;
+    text-align: center;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+    .email-processing-progress {
+        background: #2d3748;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .progress-header h4 {
+        color: #e2e8f0;
+    }
+    
+    .progress-bar-container {
+        background: #4a5568;
+    }
+    
+    .progress-status {
+        color: #a0aec0;
+    }
+    
+    .close-btn {
+        color: #a0aec0;
+    }
+    
+    .close-btn:hover {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+    .email-processing-progress {
+        width: 95%;
+        top: 10px;
+    }
+    
+    .progress-header h4 {
+        font-size: 16px;
+    }
+    
+    .progress-status {
+        font-size: 13px;
+    }
+    
+    .progress-percentage {
+        font-size: 14px;
+    }
+}
+

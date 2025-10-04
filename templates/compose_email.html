@@ -1,0 +1,1212 @@
+{% extends "base.html" %}
+
+{% block title %}撰写邮件 - AI邮件简报系统{% endblock %}
+
+{% block extra_head %}
+<!-- Quill富文本编辑器 -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<style>
+    /* 紧凑布局样式 */
+    .compose-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+    
+    .compose-header {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px 8px 0 0;
+        margin-bottom: 0;
+    }
+    
+    .compose-header h4 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    
+    .compose-form {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0 0 8px 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* 紧凑的表单组 */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group.compact {
+        margin-bottom: 0.75rem;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+    }
+    
+    .form-control {
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+    
+    /* 收件人区域紧凑布局 */
+    .recipients-section {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .recipient-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 0.75rem;
+    }
+    
+    .recipient-row:last-child {
+        margin-bottom: 0;
+    }
+    
+    .recipient-label {
+        min-width: 60px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-align: right;
+    }
+    
+    .recipient-input-wrapper {
+        flex: 1;
+        position: relative;
+    }
+    
+    .recipient-input {
+        width: 100%;
+        font-size: 0.875rem;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .recipient-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        margin-top: 0.25rem;
+    }
+    
+    .recipient-tag {
+        background: #007bff;
+        color: white;
+        padding: 0.15rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .recipient-tag .remove-tag {
+        cursor: pointer;
+        font-size: 0.7rem;
+        opacity: 0.8;
+    }
+    
+    .recipient-tag .remove-tag:hover {
+        opacity: 1;
+    }
+    
+    .cc-bcc-toggle {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .toggle-btn {
+        background: none;
+        border: none;
+        color: #007bff;
+        font-size: 0.75rem;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+    }
+    
+    .toggle-btn:hover {
+        color: #0056b3;
+    }
+    
+    /* 主题行 */
+    .subject-group {
+        margin-bottom: 1rem;
+    }
+    
+    .subject-input {
+        font-size: 0.9rem;
+        padding: 0.6rem 0.75rem;
+    }
+    
+    /* 编辑器容器 */
+    .editor-container {
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    
+    .ql-toolbar {
+        border-bottom: 1px solid #e9ecef;
+        background: #f8f9fa;
+        padding: 0.5rem;
+    }
+    
+    .ql-container {
+        font-size: 0.875rem;
+        min-height: 200px;
+    }
+    
+    .ql-editor {
+        padding: 0.75rem;
+        line-height: 1.5;
+    }
+    
+    /* 附件区域 */
+    .attachments-section {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .attachment-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .attachment-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .attachment-size {
+        color: #6c757d;
+        font-size: 0.75rem;
+    }
+    
+    .remove-attachment {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 0.25rem;
+    }
+    
+    /* 操作按钮区域 */
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+    
+    .btn-outline-secondary {
+        color: #6c757d;
+        border-color: #6c757d;
+    }
+    
+    /* 发件人选择 */
+    .sender-section {
+        margin-bottom: 1rem;
+    }
+    
+    .sender-select {
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* 状态提示 */
+    .status-indicator {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-left: auto;
+    }
+    
+    .draft-saved {
+        color: #28a745;
+    }
+    
+    .draft-saving {
+        color: #ffc107;
+    }
+    
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+        .compose-container {
+            padding: 0.5rem;
+        }
+        
+        .recipient-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.25rem;
+        }
+        
+        .recipient-label {
+            text-align: left;
+            min-width: auto;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+    
+    /* 隐藏元素 */
+    .d-none {
+        display: none !important;
+    }
+    
+    /* 加载状态 */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    
+    /* 错误状态 */
+    .is-invalid {
+        border-color: #dc3545;
+    }
+    
+    .invalid-feedback {
+        display: block;
+        font-size: 0.75rem;
+        color: #dc3545;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="compose-container">
+    <!-- 页面标题 -->
+    <div class="compose-header">
+        <h4>
+            <i class="fas fa-edit me-2"></i>
+            <span id="page-title">撰写邮件</span>
+        </h4>
+    </div>
+
+    <!-- 撰写表单 -->
+    <form id="compose-form" class="compose-form">
+        <!-- 发件人选择 -->
+        <div class="form-group sender-section">
+            <label class="form-label">发件人</label>
+            <select id="sender-account" class="form-select sender-select">
+                <option value="">选择发件人账户...</option>
+            </select>
+        </div>
+
+        <!-- 收件人区域 - 紧凑两行布局 -->
+        <div class="recipients-section">
+            <!-- 第一行：收件人 -->
+            <div class="recipient-row">
+                <label class="recipient-label">收件人:</label>
+                <div class="recipient-input-wrapper">
+                    <input type="email" 
+                           id="to-recipients" 
+                           class="form-control recipient-input" 
+                           placeholder="输入收件人邮箱地址，多个地址用逗号分隔"
+                           multiple>
+                    <div id="to-tags" class="recipient-tags"></div>
+                </div>
+            </div>
+            
+            <!-- 第二行：抄送和密送 -->
+            <div class="recipient-row d-none" id="cc-row">
+                <label class="recipient-label">抄送:</label>
+                <div class="recipient-input-wrapper">
+                    <input type="email" 
+                           id="cc-recipients" 
+                           class="form-control recipient-input" 
+                           placeholder="输入抄送邮箱地址"
+                           multiple>
+                    <div id="cc-tags" class="recipient-tags"></div>
+                </div>
+            </div>
+            
+            <div class="recipient-row d-none" id="bcc-row">
+                <label class="recipient-label">密送:</label>
+                <div class="recipient-input-wrapper">
+                    <input type="email" 
+                           id="bcc-recipients" 
+                           class="form-control recipient-input" 
+                           placeholder="输入密送邮箱地址"
+                           multiple>
+                    <div id="bcc-tags" class="recipient-tags"></div>
+                </div>
+            </div>
+            
+            <!-- 抄送/密送切换按钮 -->
+            <div class="cc-bcc-toggle">
+                <button type="button" class="toggle-btn" id="toggle-cc">+ 抄送</button>
+                <button type="button" class="toggle-btn" id="toggle-bcc">+ 密送</button>
+            </div>
+        </div>
+
+        <!-- 主题 -->
+        <div class="form-group subject-group">
+            <label for="subject" class="form-label">主题</label>
+            <input type="text" 
+                   id="subject" 
+                   class="form-control subject-input" 
+                   placeholder="输入邮件主题"
+                   required>
+        </div>
+
+        <!-- 邮件内容编辑器 -->
+        <div class="form-group">
+            <label class="form-label">邮件内容</label>
+            <div class="editor-container">
+                <div id="email-editor"></div>
+            </div>
+        </div>
+
+        <!-- 附件区域 -->
+        <div class="attachments-section">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label mb-0">附件</label>
+                <input type="file" 
+                       id="attachment-input" 
+                       class="d-none" 
+                       multiple 
+                       accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar">
+                <button type="button" 
+                        class="btn btn-outline-secondary btn-sm" 
+                        id="add-attachment-btn">
+                    <i class="fas fa-paperclip me-1"></i>添加附件
+                </button>
+            </div>
+            <div id="attachments-list">
+                <!-- 附件列表将在这里显示 -->
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="action-buttons">
+            <button type="submit" class="btn btn-primary" id="send-btn">
+                <i class="fas fa-paper-plane me-2"></i>发送邮件
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="save-draft-btn">
+                <i class="fas fa-save me-2"></i>保存草稿
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="discard-btn">
+                <i class="fas fa-trash me-2"></i>丢弃
+            </button>
+            <div class="status-indicator" id="draft-status">
+                <!-- 草稿状态显示 -->
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- 确认对话框 -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认操作</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="confirm-message">
+                <!-- 确认消息 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirm-action-btn">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Quill富文本编辑器 -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+<script>
+class EmailComposer {
+    constructor() {
+        this.quill = null;
+        this.attachments = [];
+        this.recipients = {
+            to: [],
+            cc: [],
+            bcc: []
+        };
+        this.draftTimer = null;
+        this.uploadSession = this.generateUploadSession();
+        
+        this.init();
+    }
+    
+    init() {
+        this.initQuillEditor();
+        this.initEventListeners();
+        this.loadSenderAccounts();
+        this.loadUrlParameters(); // 加载URL参数
+        this.loadDraftIfExists();
+        this.startAutoSave();
+    }
+    
+    generateUploadSession() {
+        return 'upload_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    initQuillEditor() {
+        this.quill = new Quill('#email-editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            },
+            placeholder: '请输入邮件内容...'
+        });
+        
+        // 监听内容变化
+        this.quill.on('text-change', () => {
+            this.markDraftChanged();
+        });
+    }
+    
+    initEventListeners() {
+        // 收件人输入处理
+        ['to', 'cc', 'bcc'].forEach(type => {
+            const input = document.getElementById(`${type}-recipients`);
+            if (input) {
+                input.addEventListener('keydown', (e) => this.handleRecipientInput(e, type));
+                input.addEventListener('blur', (e) => this.processRecipientInput(e, type));
+            }
+        });
+        
+        // 抄送/密送切换
+        document.getElementById('toggle-cc').addEventListener('click', () => this.toggleCcBcc('cc'));
+        document.getElementById('toggle-bcc').addEventListener('click', () => this.toggleCcBcc('bcc'));
+        
+        // 附件处理
+        document.getElementById('add-attachment-btn').addEventListener('click', () => {
+            document.getElementById('attachment-input').click();
+        });
+        document.getElementById('attachment-input').addEventListener('change', (e) => this.handleFileSelect(e));
+        
+        // 表单提交
+        document.getElementById('compose-form').addEventListener('submit', (e) => this.handleSubmit(e));
+        
+        // 按钮事件
+        document.getElementById('save-draft-btn').addEventListener('click', () => this.saveDraft());
+        document.getElementById('discard-btn').addEventListener('click', () => this.discardDraft());
+        
+        // 主题输入
+        document.getElementById('subject').addEventListener('input', () => this.markDraftChanged());
+        
+        // 确认对话框
+        document.getElementById('confirm-action-btn').addEventListener('click', () => this.executeConfirmedAction());
+        
+        // 页面离开确认
+        window.addEventListener('beforeunload', (e) => {
+            if (this.hasUnsavedChanges()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    }
+    
+    handleRecipientInput(e, type) {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            this.processRecipientInput(e, type);
+        }
+    }
+    
+    processRecipientInput(e, type) {
+        const input = e.target;
+        const value = input.value.trim();
+        
+        if (value) {
+            const emails = value.split(/[,;]/).map(email => email.trim()).filter(email => email);
+            emails.forEach(email => {
+                if (this.isValidEmail(email) && !this.recipients[type].includes(email)) {
+                    this.recipients[type].push(email);
+                }
+            });
+            
+            input.value = '';
+            this.updateRecipientsDisplay(type);
+            this.markDraftChanged();
+        }
+    }
+    
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    updateRecipientsDisplay(type) {
+        const container = document.getElementById(`${type}-tags`);
+        container.innerHTML = '';
+        
+        this.recipients[type].forEach((email, index) => {
+            const tag = document.createElement('div');
+            tag.className = 'recipient-tag';
+            tag.innerHTML = `
+                <span>${email}</span>
+                <i class="fas fa-times remove-tag" onclick="emailComposer.removeRecipient('${type}', ${index})"></i>
+            `;
+            container.appendChild(tag);
+        });
+    }
+    
+    removeRecipient(type, index) {
+        this.recipients[type].splice(index, 1);
+        this.updateRecipientsDisplay(type);
+        this.markDraftChanged();
+    }
+    
+    toggleCcBcc(type, show = null) {
+        const row = document.getElementById(`${type}-row`);
+        const button = document.getElementById(`toggle-${type}`);
+        
+        const isVisible = show !== null ? show : row.classList.contains('d-none');
+        
+        if (isVisible) {
+            row.classList.remove('d-none');
+            button.textContent = `- ${type === 'cc' ? '抄送' : '密送'}`;
+        } else {
+            row.classList.add('d-none');
+            button.textContent = `+ ${type === 'cc' ? '抄送' : '密送'}`;
+            // 清空该类型的收件人
+            this.recipients[type] = [];
+            this.updateRecipientsDisplay(type);
+        }
+    }
+    
+    async handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        
+        for (const file of files) {
+            if (file.size > 25 * 1024 * 1024) { // 25MB限制
+                this.showAlert('danger', `文件 ${file.name} 超过25MB大小限制`);
+                continue;
+            }
+            
+            await this.uploadAttachment(file);
+        }
+        
+        // 清空文件输入
+        e.target.value = '';
+    }
+    
+    async uploadAttachment(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_session', this.uploadSession);
+        
+        try {
+            const response = await fetch('/api/compose/upload-attachment', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.attachments.push({
+                    id: result.attachment_id,
+                    filename: file.name,
+                    size: file.size,
+                    path: result.file_path
+                });
+                
+                this.updateAttachmentsDisplay();
+                this.markDraftChanged();
+            } else {
+                this.showAlert('danger', `上传失败: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('上传附件失败:', error);
+            this.showAlert('danger', '上传附件失败，请重试');
+        }
+    }
+    
+    updateAttachmentsDisplay() {
+        const container = document.getElementById('attachments-list');
+        container.innerHTML = '';
+        
+        this.attachments.forEach((attachment, index) => {
+            const item = document.createElement('div');
+            item.className = 'attachment-item';
+            item.innerHTML = `
+                <div class="attachment-info">
+                    <i class="fas fa-paperclip text-muted"></i>
+                    <span>${attachment.filename}</span>
+                    <span class="attachment-size">(${this.formatFileSize(attachment.size)})</span>
+                </div>
+                <button type="button" class="remove-attachment" onclick="emailComposer.removeAttachment(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(item);
+        });
+    }
+    
+    removeAttachment(index) {
+        this.attachments.splice(index, 1);
+        this.updateAttachmentsDisplay();
+        this.markDraftChanged();
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    async loadSenderAccounts() {
+        try {
+            const response = await fetch('/api/compose/sender-accounts', {
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            // 检查响应类型
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error(`API返回了非JSON响应 (${response.status}): ${contentType || '未知'}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const select = document.getElementById('sender-account');
+                select.innerHTML = '<option value="">选择发件人账户...</option>';
+                
+                if (result.accounts && result.accounts.length > 0) {
+                    result.accounts.forEach(account => {
+                        const option = document.createElement('option');
+                        option.value = account.id;
+                        option.textContent = `${account.email} (${account.smtp_server})`;
+                        if (account.is_default) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                } else {
+                    // 没有账户时的提示
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = '请先在设置页面添加邮箱账户';
+                    option.disabled = true;
+                    select.appendChild(option);
+                    
+                    this.showAlert('warning', '没有可用的发件人账户，请先在设置页面添加邮箱账户');
+                }
+            } else {
+                throw new Error(result.message || '获取发件人账户失败');
+            }
+        } catch (error) {
+            console.error('加载发件人账户失败:', error);
+            
+            // 显示错误提示
+            const select = document.getElementById('sender-account');
+            select.innerHTML = '<option value="">加载失败，请刷新重试</option>';
+            
+            this.showAlert('danger', `加载发件人账户失败: ${error.message}`);
+        }
+    }
+    
+    loadUrlParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const action = urlParams.get('action');
+        
+        // 如果是编辑模式，从URL参数加载邮件数据
+        if (action === 'edit') {
+            const subject = urlParams.get('subject') || '';
+            const to = urlParams.get('to') || '';
+            const cc = urlParams.get('cc') || '';
+            const bcc = urlParams.get('bcc') || '';
+            const body = urlParams.get('body') || '';
+            
+            // 填充表单字段
+            if (subject) {
+                document.getElementById('subject').value = decodeURIComponent(subject);
+            }
+            
+            if (to) {
+                document.getElementById('to-recipients').value = decodeURIComponent(to);
+                this.parseRecipients('to', decodeURIComponent(to));
+            }
+            
+            if (cc) {
+                document.getElementById('cc-recipients').value = decodeURIComponent(cc);
+                this.parseRecipients('cc', decodeURIComponent(cc));
+                this.toggleCcBcc('cc', true);
+            }
+            
+            if (bcc) {
+                document.getElementById('bcc-recipients').value = decodeURIComponent(bcc);
+                this.parseRecipients('bcc', decodeURIComponent(bcc));
+                this.toggleCcBcc('bcc', true);
+            }
+            
+            // 设置编辑器内容（需要等待编辑器初始化完成）
+            if (body) {
+                setTimeout(() => {
+                    if (this.quill) {
+                        this.quill.root.innerHTML = decodeURIComponent(body);
+                    }
+                }, 100);
+            }
+            
+            // 更新页面标题
+            document.title = '重新编辑邮件 - AI邮件简报系统';
+            const headerTitle = document.getElementById('page-title');
+            if (headerTitle) {
+                headerTitle.textContent = '重新编辑邮件';
+            }
+        }
+    }
+    
+    parseRecipients(type, recipientString) {
+        if (!recipientString) return;
+        
+        const emails = recipientString.split(/[,;]/).map(email => email.trim()).filter(email => email);
+        this.recipients[type] = emails;
+        this.updateRecipientsDisplay(type);
+    }
+    
+    async loadDraftIfExists() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const draftId = urlParams.get('draft_id');
+        const replyToId = urlParams.get('reply_to');
+        const action = urlParams.get('action');
+        
+        // 如果是编辑模式，跳过草稿加载
+        if (action === 'edit') {
+            return;
+        }
+        
+        if (draftId) {
+            await this.loadDraft(draftId);
+        } else if (replyToId) {
+            await this.loadReplyData(replyToId);
+        }
+    }
+    
+    async loadDraft(draftId) {
+        try {
+            const response = await fetch(`/api/compose/draft/${draftId}`, {
+                credentials: 'same-origin'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                const draft = result.draft;
+                
+                // 填充表单数据
+                document.getElementById('subject').value = draft.subject || '';
+                
+                if (draft.to_addresses) {
+                    this.recipients.to = draft.to_addresses.split(',').map(email => email.trim());
+                    this.updateRecipientsDisplay('to');
+                }
+                
+                if (draft.cc_addresses) {
+                    this.recipients.cc = draft.cc_addresses.split(',').map(email => email.trim());
+                    this.updateRecipientsDisplay('cc');
+                    this.toggleCcBcc('cc', true);
+                }
+                
+                if (draft.bcc_addresses) {
+                    this.recipients.bcc = draft.bcc_addresses.split(',').map(email => email.trim());
+                    this.updateRecipientsDisplay('bcc');
+                    this.toggleCcBcc('bcc', true);
+                }
+                
+                if (draft.body) {
+                    this.quill.root.innerHTML = draft.body;
+                }
+                
+                if (draft.attachments) {
+                    this.attachments = JSON.parse(draft.attachments);
+                    this.updateAttachmentsDisplay();
+                }
+                
+                this.updateDraftStatus('已加载草稿');
+            }
+        } catch (error) {
+            console.error('加载草稿失败:', error);
+        }
+    }
+    
+    async loadReplyData(replyToId) {
+        try {
+            const response = await fetch(`/api/compose/reply-data/${replyToId}`, {
+                credentials: 'same-origin'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                const replyData = result.reply_data;
+                
+                // 设置回复相关数据
+                document.getElementById('subject').value = replyData.subject;
+                this.recipients.to = [replyData.reply_to];
+                this.updateRecipientsDisplay('to');
+                
+                if (replyData.body) {
+                    this.quill.root.innerHTML = replyData.body;
+                }
+                
+                this.updateDraftStatus('回复模式');
+            }
+        } catch (error) {
+            console.error('加载回复数据失败:', error);
+        }
+    }
+    
+    async handleSubmit(e) {
+        e.preventDefault();
+        
+        if (!this.validateForm()) {
+            return;
+        }
+        
+        const submitBtn = document.getElementById('send-btn');
+        const originalText = submitBtn.innerHTML;
+        
+        try {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>发送中...';
+            
+            const formData = this.collectFormData();
+            
+            const response = await fetch('/api/compose/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert('success', '邮件发送成功！');
+                
+                // 清理草稿和临时文件
+                await this.cleanupAfterSend();
+                
+                // 跳转到已发送页面
+                setTimeout(() => {
+                    window.location.href = '/sent';
+                }, 1500);
+            } else {
+                this.showAlert('danger', `发送失败: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('发送邮件失败:', error);
+            this.showAlert('danger', '发送失败，请检查网络连接后重试');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+    
+    validateForm() {
+        let isValid = true;
+        
+        // 验证收件人
+        if (this.recipients.to.length === 0) {
+            this.showFieldError('to-recipients', '请至少输入一个收件人');
+            isValid = false;
+        }
+        
+        // 验证主题
+        const subject = document.getElementById('subject').value.trim();
+        if (!subject) {
+            this.showFieldError('subject', '请输入邮件主题');
+            isValid = false;
+        }
+        
+        // 验证发件人
+        const senderAccount = document.getElementById('sender-account').value;
+        if (!senderAccount) {
+            this.showFieldError('sender-account', '请选择发件人账户');
+            isValid = false;
+        }
+        
+        return isValid;
+    }
+    
+    showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        field.classList.add('is-invalid');
+        
+        // 移除现有错误消息
+        const existingError = field.parentNode.querySelector('.invalid-feedback');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        // 添加错误消息
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'invalid-feedback';
+        errorDiv.textContent = message;
+        field.parentNode.appendChild(errorDiv);
+        
+        // 3秒后移除错误状态
+        setTimeout(() => {
+            field.classList.remove('is-invalid');
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+            }
+        }, 3000);
+    }
+    
+    collectFormData() {
+        return {
+            sender_account_id: document.getElementById('sender-account').value,
+            to_addresses: this.recipients.to.join(','),
+            cc_addresses: this.recipients.cc.join(','),
+            bcc_addresses: this.recipients.bcc.join(','),
+            subject: document.getElementById('subject').value.trim(),
+            body: this.quill.root.innerHTML,
+            attachments: this.attachments,
+            upload_session: this.uploadSession
+        };
+    }
+    
+    async saveDraft() {
+        try {
+            const formData = this.collectFormData();
+            
+            const response = await fetch('/api/compose/save-draft', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+                credentials: 'same-origin'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateDraftStatus('草稿已保存', 'draft-saved');
+            } else {
+                this.updateDraftStatus('保存失败', 'text-danger');
+            }
+        } catch (error) {
+            console.error('保存草稿失败:', error);
+            this.updateDraftStatus('保存失败', 'text-danger');
+        }
+    }
+    
+    startAutoSave() {
+        // 每30秒自动保存草稿
+        this.draftTimer = setInterval(() => {
+            if (this.hasContent()) {
+                this.updateDraftStatus('正在保存...', 'draft-saving');
+                this.saveDraft();
+            }
+        }, 30000);
+    }
+    
+    hasContent() {
+        const subject = document.getElementById('subject').value.trim();
+        const body = this.quill.getText().trim();
+        const hasRecipients = this.recipients.to.length > 0 || this.recipients.cc.length > 0 || this.recipients.bcc.length > 0;
+        
+        return subject || body || hasRecipients || this.attachments.length > 0;
+    }
+    
+    hasUnsavedChanges() {
+        return this.hasContent();
+    }
+    
+    markDraftChanged() {
+        this.updateDraftStatus('有未保存的更改');
+    }
+    
+    updateDraftStatus(message, className = '') {
+        const statusElement = document.getElementById('draft-status');
+        statusElement.textContent = message;
+        statusElement.className = `status-indicator ${className}`;
+        
+        // 3秒后清除状态
+        if (className !== 'draft-saving') {
+            setTimeout(() => {
+                if (statusElement.textContent === message) {
+                    statusElement.textContent = '';
+                    statusElement.className = 'status-indicator';
+                }
+            }, 3000);
+        }
+    }
+    
+    discardDraft() {
+        this.showConfirmModal(
+            '确认丢弃',
+            '确定要丢弃当前邮件吗？所有未保存的内容将丢失。',
+            'discard'
+        );
+    }
+    
+    showConfirmModal(title, message, action) {
+        document.querySelector('#confirmModal .modal-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        document.getElementById('confirm-action-btn').dataset.action = action;
+        
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        modal.show();
+    }
+    
+    executeConfirmedAction() {
+        const action = document.getElementById('confirm-action-btn').dataset.action;
+        
+        if (action === 'discard') {
+            this.performDiscard();
+        }
+        
+        // 关闭模态框
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+    }
+    
+    performDiscard() {
+        // 清空表单
+        document.getElementById('compose-form').reset();
+        this.quill.setContents([]);
+        this.recipients = { to: [], cc: [], bcc: [] };
+        this.attachments = [];
+        
+        ['to', 'cc', 'bcc'].forEach(type => {
+            this.updateRecipientsDisplay(type);
+        });
+        this.updateAttachmentsDisplay();
+        
+        // 隐藏抄送/密送行
+        this.toggleCcBcc('cc', false);
+        this.toggleCcBcc('bcc', false);
+        
+        this.updateDraftStatus('已丢弃');
+        
+        // 跳转到邮件列表
+        setTimeout(() => {
+            window.location.href = '/emails';
+        }, 1000);
+    }
+    
+    async cleanupAfterSend() {
+        try {
+            await fetch('/api/compose/cleanup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    upload_session: this.uploadSession
+                }),
+                credentials: 'same-origin'
+            });
+        } catch (error) {
+            console.error('清理发送后数据失败:', error);
+        }
+    }
+    
+    showAlert(type, message) {
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        const container = document.querySelector('.compose-container');
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = alertHtml;
+        container.insertBefore(tempDiv.firstElementChild, container.firstElementChild);
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            const alert = container.querySelector('.alert');
+            if (alert) {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 150);
+            }
+        }, 5000);
+    }
+}
+
+// 初始化邮件撰写器
+let emailComposer;
+document.addEventListener('DOMContentLoaded', () => {
+    emailComposer = new EmailComposer();
+});
+</script>
+{% endblock %}

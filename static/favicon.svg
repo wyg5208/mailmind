@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 背景 -->
+  <rect width="100" height="100" rx="15" fill="#4F46E5"/>
+  
+  <!-- 邮件信封 -->
+  <g transform="translate(20, 25)">
+    <!-- 信封主体 -->
+    <rect x="0" y="10" width="60" height="40" rx="3" fill="#ffffff"/>
+    
+    <!-- 信封封口 -->
+    <path d="M 0 10 L 30 35 L 60 10" fill="#E0E7FF" stroke="#4F46E5" stroke-width="2"/>
+    
+    <!-- AI 闪电图标 -->
+    <g transform="translate(22, 20)">
+      <path d="M 10 0 L 5 12 L 10 12 L 8 22 L 18 8 L 12 8 L 16 0 Z" fill="#FBBF24" stroke="#F59E0B" stroke-width="1"/>
+    </g>
+  </g>
+  
+  <!-- 底部装饰线 -->
+  <rect x="15" y="80" width="70" height="3" rx="1.5" fill="#A78BFA"/>
+</svg>
+

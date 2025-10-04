@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮件分类规则管理 - AI邮件简报系统</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/classification_rules.css') }}">
+    
+    <style>
+        /* 页面主体样式 - 紧凑版 */
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 12px 0;
+            font-size: 13px;
+        }
+        
+        .page-header {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .page-title {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 1.3rem;
+        }
+        
+        .page-description {
+            color: #666;
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        
+        /* 操作按钮组 */
+        .action-buttons {
+            background: white;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        /* 智能建议卡片 */
+        .suggestion-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            margin-bottom: 12px;
+        }
+        
+        .suggestion-card .card-body {
+            padding: 12px 15px;
+        }
+        
+        /* 规则列表容器 */
+        .rules-container {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        /* 规则卡片 */
+        .rule-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            cursor: move;
+        }
+        
+        .rule-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.15);
+            transform: translateY(-1px);
+        }
+        
+        .rule-item.dragging {
+            opacity: 0.5;
+        }
+        
+        /* 拖拽手柄 */
+        .drag-handle {
+            color: #adb5bd;
+            cursor: grab;
+            font-size: 14px;
+        }
+        
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        
+        /* 徽章样式 */
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.25em 0.6em;
+            font-weight: 500;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 15px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 50px;
+            color: #dee2e6;
+            margin-bottom: 12px;
+        }
+        
+        /* 模态框样式 */
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px 10px 0 0;
+            padding: 12px 20px;
+        }
+        
+        .modal-header .modal-title {
+            font-size: 1.1rem;
+        }
+        
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+        
+        .modal-body {
+            padding: 15px 20px;
+        }
+        
+        .modal-footer {
+            padding: 10px 20px;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.15rem rgba(102, 126, 234, 0.2);
+        }
+        
+        .form-text {
+            font-size: 0.75rem;
+            margin-top: 3px;
+        }
+        
+        /* 开关样式 */
+        .form-check-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        
+        .form-check-label {
+            font-size: 0.85rem;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* 返回按钮 */
+        .back-button {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 1000;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+        }
+        
+        /* ==================== 智能建议样式 ==================== */
+        #suggestions-area {
+            margin-bottom: 12px;
+        }
+        
+        .suggestion-item {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            color: white;
+            box-shadow: 0 3px 10px rgba(245, 87, 108, 0.25);
+            transition: all 0.3s ease;
+        }
+        
+        .suggestion-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.35);
+        }
+        
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .confidence-badge {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        
+        .suggestion-type-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+        }
+        
+        .suggestion-body {
+            margin-bottom: 10px;
+        }
+        
+        .suggestion-body p {
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        
+        .suggestion-body code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-top: 3px;
+        }
+        
+        .suggestion-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .suggestion-actions .btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.9);
+            color: #f5576c;
+            border: none;
+            font-weight: 600;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        .suggestion-actions .btn:hover {
+            background: white;
+            transform: translateY(-1px);
+        }
+        
+        .suggestion-actions .btn-outline-light {
+            background: transparent;
+            color: white;
+            border: 1.5px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .suggestion-actions .btn-outline-light:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: white;
+        }
+        
+        .no-suggestions {
+            text-align: center;
+            padding: 30px 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .no-suggestions i {
+            font-size: 3rem;
+            color: #ccc;
+            margin-bottom: 12px;
+        }
+        
+        .no-suggestions h5 {
+            color: #666;
+            margin-bottom: 6px;
+            font-size: 1rem;
+        }
+        
+        .no-suggestions p {
+            color: #999;
+            margin-bottom: 0;
+            font-size: 0.85rem;
+        }
+        
+        /* 额外的紧凑优化 */
+        h5, h6 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+        
+        .mb-3 {
+            margin-bottom: 0.8rem !important;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1rem !important;
+        }
+        
+        .border-bottom {
+            padding-bottom: 6px !important;
+        }
+        
+        /* 响应式优化 */
+        @media (max-width: 768px) {
+            .suggestion-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .suggestion-actions {
+                flex-direction: column;
+            }
+            
+            .suggestion-actions .btn {
+                flex: none;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 返回按钮 -->
+    <a href="{{ url_for('emails') }}" class="btn btn-light back-button">
+        <i class="fas fa-arrow-left me-2"></i>返回邮件列表
+    </a>
+
+    <div class="container" style="max-width: 1200px;">
+        <!-- 页面标题 -->
+        <div class="page-header">
+            <h2 class="page-title">
+                <i class="fas fa-cog me-2"></i>邮件分类规则管理
+            </h2>
+            <p class="page-description">
+                创建自定义规则，让系统自动为您的邮件分类。支持发件人模式匹配、主题关键词、正文内容等多种条件组合。
+            </p>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="action-buttons">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div class="mb-2 mb-md-0">
+                    <button class="btn btn-primary me-2" onclick="showCreateRuleModal()">
+                        <i class="fas fa-plus me-2"></i>新建规则
+                    </button>
+                    <button class="btn btn-success me-2" onclick="generateSuggestions()" title="分析您的邮件行为，生成智能规则建议">
+                        <i class="fas fa-lightbulb me-2"></i>生成建议
+                    </button>
+                    <button class="btn btn-info me-2" onclick="importRules()" title="导入规则">
+                        <i class="fas fa-file-import me-2"></i>导入规则
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportRules()" title="导出规则">
+                        <i class="fas fa-file-export me-2"></i>导出规则
+                    </button>
+                </div>
+                <div>
+                    <span class="text-muted">
+                        共 <strong id="rule-count">0</strong> 条规则
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 智能建议区域 -->
+        <div id="suggestions-area">
+            <!-- 动态加载建议 -->
+        </div>
+        
+        <!-- 规则列表 -->
+        <div class="rules-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>我的分类规则
+                </h5>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    拖拽规则可调整优先级顺序
+                </small>
+            </div>
+            
+            <div id="rules-list">
+                <!-- 加载中提示 -->
+                <div class="text-center py-5" id="loading-indicator">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-3 text-muted">正在加载规则...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建/编辑规则模态框 -->
+    <div class="modal fade" id="ruleModal" tabindex="-1" aria-labelledby="ruleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="border-radius: 15px; overflow: hidden;">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ruleModalLabel">
+                        <i class="fas fa-magic me-2"></i>
+                        <span id="modal-title-text">新建规则</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <form id="ruleForm">
+                        <!-- 基础信息 -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-tag me-1"></i>规则名称 *
+                            </label>
+                            <input type="text" class="form-control" id="rule-name" required
+                                   placeholder="例如: 工作邮件-项目A">
+                            <small class="form-text text-muted">给规则起一个容易识别的名称</small>
+                        </div>
+                        
+                        <!-- 匹配条件 -->
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-filter me-1"></i>匹配条件
+                        </h6>
+                        
+                        <!-- 发件人条件 -->
+                        <div class="mb-3">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="enable-sender-rule"
+                                       onchange="toggleSenderConfig()">
+                                <label class="form-check-label fw-bold">
+                                    <i class="fas fa-user me-1"></i>发件人规则
+                                </label>
+                            </div>
+                            <div id="sender-rule-config" style="display:none;">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <select class="form-select" id="sender-match-type">
+                                            <option value="contains">包含</option>
+                                            <option value="exact">精确匹配</option>
+                                            <option value="domain">域名匹配</option>
+                                            <option value="wildcard">通配符</option>
+                                            <option value="regex">正则表达式</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="sender-pattern"
+                                               placeholder="例如: @company.com 或 boss@example.com">
+                                    </div>
+                                </div>
+                                <small class="form-text text-muted">
+                                    💡 示例: 
+                                    <code>@company.com</code> (域名), 
+                                    <code>*@*.edu.cn</code> (通配符),
+                                    <code>boss@example.com</code> (精确)
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- 主题条件 -->
+                        <div class="mb-3">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="enable-subject-rule"
+                                       onchange="toggleSubjectConfig()">
+                                <label class="form-check-label fw-bold">
+                                    <i class="fas fa-heading me-1"></i>主题规则
+                                </label>
+                            </div>
+                            <div id="subject-rule-config" style="display:none;">
+                                <div class="mb-2">
+                                    <input type="text" class="form-control" id="subject-keywords"
+                                           placeholder="输入关键词，用逗号分隔">
+                                    <small class="form-text text-muted">
+                                        例如: 发票,报销,财务
+                                    </small>
+                                </div>
+                                <div class="btn-group btn-group-sm w-100" role="group">
+                                    <input type="radio" class="btn-check" name="subject-logic" 
+                                           id="subject-or" value="OR" checked>
+                                    <label class="btn btn-outline-primary" for="subject-or">
+                                        <i class="fas fa-exchange-alt me-1"></i>OR（任一匹配）
+                                    </label>
+                                    <input type="radio" class="btn-check" name="subject-logic" 
+                                           id="subject-and" value="AND">
+                                    <label class="btn btn-outline-primary" for="subject-and">
+                                        <i class="fas fa-link me-1"></i>AND（全部匹配）
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 正文条件 -->
+                        <div class="mb-4">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="enable-body-rule"
+                                       onchange="toggleBodyConfig()">
+                                <label class="form-check-label fw-bold">
+                                    <i class="fas fa-align-left me-1"></i>正文规则
+                                </label>
+                            </div>
+                            <div id="body-rule-config" style="display:none;">
+                                <input type="text" class="form-control" id="body-keywords"
+                                       placeholder="输入关键词，用逗号分隔">
+                                <small class="form-text text-muted">
+                                    正文关键词使用OR逻辑（任一匹配即可）
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- 分类结果 -->
+                        <h6 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-tags me-1"></i>分类结果
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-folder me-1"></i>目标分类 *
+                                </label>
+                                <select class="form-select" id="target-category" required>
+                                    <option value="work">💼 工作邮件</option>
+                                    <option value="finance">💰 财务邮件</option>
+                                    <option value="social">👥 社交邮件</option>
+                                    <option value="shopping">🛒 购物邮件</option>
+                                    <option value="news">📰 资讯邮件</option>
+                                    <option value="education">🎓 教育学习</option>
+                                    <option value="travel">✈️ 旅行出行</option>
+                                    <option value="health">🏥 健康医疗</option>
+                                    <option value="system">🔔 系统通知</option>
+                                    <option value="spam">🗑️ 垃圾邮件</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-exclamation-circle me-1"></i>重要性 *
+                                </label>
+                                <select class="form-select" id="target-importance" required>
+                                    <option value="4">🔴 紧急</option>
+                                    <option value="3">🟠 重要</option>
+                                    <option value="2" selected>🟡 中等</option>
+                                    <option value="1">⚪ 普通</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- 规则设置 -->
+                        <h6 class="border-bottom pb-2 mb-3 mt-4">
+                            <i class="fas fa-sliders-h me-1"></i>规则设置
+                        </h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-sort-amount-down me-1"></i>优先级
+                                </label>
+                                <input type="number" class="form-control" id="rule-priority" 
+                                       value="5" min="1" max="100">
+                                <small class="form-text text-muted">
+                                    数值越大优先级越高（1-100）
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-power-off me-1"></i>状态
+                                </label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="rule-active" checked>
+                                    <label class="form-check-label">启用规则</label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>取消
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="testCurrentRule()">
+                        <i class="fas fa-vial me-1"></i>测试规则
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveRule()">
+                        <i class="fas fa-save me-1"></i>保存规则
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- SortableJS for drag & drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    
+    <!-- 自定义JavaScript -->
+    <script src="{{ url_for('static', filename='js/classification_rules.js') }}"></script>
+</body>
+</html>
+

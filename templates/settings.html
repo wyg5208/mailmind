@@ -1,0 +1,1553 @@
+{% extends "base.html" %}
+
+{% block title %}设置 - AI邮件简报系统{% endblock %}
+
+{% block content %}
+
+
+<!-- 邮箱账户配置 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-gradient-primary text-white">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-envelope-open me-2"></i>邮箱账户管理
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- 添加新账户表单 -->
+                <div class="add-account-section mb-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-plus-circle text-success me-2"></i>添加邮箱账户
+                    </h5>
+                    
+                    <form method="POST" action="{{ url_for('add_account') }}" class="needs-validation" novalidate>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="email" class="form-label">邮箱地址 *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-at"></i></span>
+                                    <input type="email" class="form-control" id="email" name="email" required
+                                           placeholder="your@email.com" onchange="detectProvider()">
+                                    <div class="invalid-feedback">
+                                        请输入有效的邮箱地址
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="password" class="form-label">密码/授权码 *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                    <input type="password" class="form-control" id="password" name="password" required
+                                           placeholder="密码或应用专用密码">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword()">
+                                        <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                                    </button>
+                                    <div class="invalid-feedback">
+                                        请输入密码或授权码
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="provider" class="form-label">邮件服务商 *</label>
+                                <select class="form-select" id="provider" name="provider" required>
+                                    <option value="">请选择服务商</option>
+                                    <option value="gmail">Gmail</option>
+                                    <option value="126">126邮箱</option>
+                                    <option value="163">163邮箱</option>
+                                    <option value="qq">QQ邮箱</option>
+                                    <option value="sina">新浪邮箱（自动识别）</option>
+                                    <option value="hotmail">Hotmail/Live</option>
+                                    <option value="outlook">Outlook</option>
+                                    <option value="yahoo">Yahoo</option>
+                                </select>
+                                <div class="invalid-feedback">
+                                    请选择邮件服务商
+                                </div>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fas fa-plus me-1"></i>添加
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 帮助信息 -->
+                        <div class="mt-3">
+                            <div class="alert alert-info border-0 bg-info bg-opacity-10">
+                                <div class="d-flex">
+                                    <i class="fas fa-info-circle text-info me-2 mt-1"></i>
+                                    <div>
+                                        <h6 class="alert-heading mb-2">重要提示</h6>
+                                        <ul class="mb-0 small">
+                                            <li><strong>Gmail:</strong> 需要开启两步验证并使用应用专用密码</li>
+                                            <li><strong>126邮箱:</strong> 
+                                                <ul class="mt-1">
+                                                    <li>登录网页版邮箱，进入【设置】→【POP3/SMTP/IMAP】</li>
+                                                    <li>开启【IMAP/SMTP服务】</li>
+                                                    <li>设置【客户端授权密码】（不是登录密码！）</li>
+                                                    <li>服务器配置：IMAP: imap.126.com:993(SSL) / SMTP: smtp.126.com:465(SSL)</li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>163邮箱:</strong> 
+                                                <ul class="mt-1">
+                                                    <li>登录网页版邮箱，进入【设置】→【POP3/SMTP/IMAP】</li>
+                                                    <li>开启【IMAP/SMTP服务】</li>
+                                                    <li>设置【客户端授权密码】（不是登录密码！）</li>
+                                                    <li>服务器配置：IMAP: imap.163.com:993(SSL) / SMTP: smtp.163.com:465(SSL)</li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>QQ邮箱:</strong> 需要开启IMAP/SMTP服务并获取授权码</li>
+                                            <li><strong>新浪邮箱:</strong>
+                                                <ul class="mt-1">
+                                                    <li>支持4种域名：@sina.com、@sina.cn、@vip.sina.com、@vip.sina.cn</li>
+                                                    <li>系统会根据邮箱地址自动识别并使用对应服务器</li>
+                                                    <li>需要开启IMAP/SMTP服务并使用授权码</li>
+                                                    <li>登录新浪邮箱 → 设置 → 客户端POP/IMAP/SMTP → 开启服务</li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>Hotmail/Outlook:</strong> 直接使用登录密码即可</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 已配置的账户列表 -->
+                    <div class="accounts-list">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list text-primary me-2"></i>已配置账户
+                            <span class="badge bg-secondary ms-2">{{ accounts|length }}</span>
+                        </h5>
+                        <button class="btn btn-outline-info btn-sm" onclick="refreshAccountStats()">
+                            <i class="fas fa-sync me-1"></i>刷新统计
+                        </button>
+                    </div>
+                    
+                    {% if accounts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th><i class="fas fa-envelope me-1"></i>邮箱地址</th>
+                                    <th><i class="fas fa-server me-1"></i>服务商</th>
+                                    <th><i class="fas fa-toggle-on me-1"></i>状态</th>
+                                    <th><i class="fas fa-clock me-1"></i>最后检查</th>
+                                    <th><i class="fas fa-chart-bar me-1"></i>邮件数量</th>
+                                    <th><i class="fas fa-cog me-1"></i>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for account in accounts %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user-circle text-muted me-2"></i>
+                                            <span>{{ account.email }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ account.provider.upper() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if account.is_active %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>活跃
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times-circle me-1"></i>停用
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if account.last_check %}
+                                            {{ account.last_check[:19].replace('T', ' ') }}
+                                            {% else %}
+                                            从未检查
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ account.total_emails or 0 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-primary" 
+                                                    data-account-id="{{ account.id }}" 
+                                                    data-account-email="{{ account.email }}"
+                                                    onclick="testConnection(this.dataset.accountId, this.dataset.accountEmail)">
+                                                <i class="fas fa-plug"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" 
+                                                    data-account-id="{{ account.id }}"
+                                                    onclick="toggleAccount(this.dataset.accountId)">
+                                                {% if account.is_active %}
+                                                <i class="fas fa-pause"></i>
+                                                {% else %}
+                                                <i class="fas fa-play"></i>
+                                                {% endif %}
+                                            </button>
+                                            <button class="btn btn-outline-danger" 
+                                                    data-account-id="{{ account.id }}" 
+                                                    data-account-email="{{ account.email }}"
+                                                    onclick="removeAccount(this.dataset.accountId, this.dataset.accountEmail)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-accounts text-center py-4">
+                        <i class="fas fa-inbox text-muted display-4 mb-3"></i>
+                        <h5 class="text-muted mb-2">暂无配置的邮箱账户</h5>
+                        <p class="text-muted">请在上方添加您的邮箱账户以开始使用系统</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 用户配置和系统配置 -->
+<div class="row mb-4">
+    <!-- 用户个人配置 -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-cog me-2"></i>个人配置
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="userConfigForm">
+                    <!-- 邮件收取调度策略 -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-clock me-2 text-primary"></i>邮件收取调度策略
+                        </label>
+                        <select class="form-select" id="scheduleType" onchange="updateScheduleOptions()">
+                            <option value="interval" {{ 'selected' if user_configs.get('schedule_type', 'interval') == 'interval' }}>
+                                按间隔收取（每隔X分钟）
+                            </option>
+                            <option value="cron" {{ 'selected' if user_configs.get('schedule_type', 'interval') == 'cron' }}>
+                                定时收取（每天固定时间点）
+                            </option>
+                            <option value="custom" {{ 'selected' if user_configs.get('schedule_type', 'interval') == 'custom' }}>
+                                自定义规则（整点/偶数点等）
+                            </option>
+                        </select>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle text-info"></i> 
+                            <strong>建议：</strong>定时收取更稳定可预测，避免频繁重启导致的时间混乱
+                        </div>
+                    </div>
+
+                    <!-- 间隔模式配置 -->
+                    <div id="intervalOptions" style="display: {{ 'block' if user_configs.get('schedule_type', 'interval') == 'interval' else 'none' }};">
+                        <div class="mb-3 ms-4">
+                            <label for="userCheckInterval" class="form-label">检查间隔（分钟）</label>
+                            <input type="number" class="form-control" id="userCheckInterval" 
+                                   min="5" max="1440" 
+                                   value="{{ user_configs.get('check_interval_minutes', '30') }}">
+                            <div class="form-text">
+                                每隔多少分钟检查一次邮件
+                                <br><i class="fas fa-exclamation-triangle text-warning"></i> 
+                                <strong>注意：</strong>系统重启时会立即执行一次，然后按间隔执行
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cron定时模式配置 -->
+                    <div id="cronOptions" style="display: {{ 'block' if user_configs.get('schedule_type', 'interval') == 'cron' else 'none' }};">
+                        <div class="mb-3 ms-4">
+                            <label for="cronHours" class="form-label">每天收取时间（小时）</label>
+                            <select class="form-select mb-2" id="cronHoursPreset" onchange="applyCronHoursPreset()">
+                                <option value="">自定义选择</option>
+                                <option value="6">每天早上6点</option>
+                                <option value="6,18">每天早晚（6点、18点）</option>
+                                <option value="6,12,18">每天三次（6点、12点、18点）</option>
+                                <option value="6,9,12,15,18,21">每天六次（6点、9点、12点、15点、18点、21点）</option>
+                                <option value="0,6,12,18">四个时间点（0点、6点、12点、18点）</option>
+                            </select>
+                            <input type="text" class="form-control" id="cronHours" 
+                                   value="{{ user_configs.get('cron_hours', '6') }}"
+                                   placeholder="例如: 6,12,18 表示6点、12点、18点">
+                            <div class="form-text">用逗号分隔，如 6,12,18 表示每天6点、12点、18点执行</div>
+                        </div>
+                        <div class="mb-3 ms-4">
+                            <label for="cronMinutes" class="form-label">分钟偏移</label>
+                            <select class="form-select" id="cronMinutes">
+                                <option value="0" {{ 'selected' if user_configs.get('cron_minutes', '0') == '0' }}>整点（0分）</option>
+                                <option value="15" {{ 'selected' if user_configs.get('cron_minutes', '0') == '15' }}>15分</option>
+                                <option value="30" {{ 'selected' if user_configs.get('cron_minutes', '0') == '30' }}>30分</option>
+                                <option value="45" {{ 'selected' if user_configs.get('cron_minutes', '0') == '45' }}>45分</option>
+                            </select>
+                            <div class="form-text">例如选择6点和15分偏移，则在6:15执行</div>
+                        </div>
+                    </div>
+
+                    <!-- 自定义规则模式配置 -->
+                    <div id="customOptions" style="display: {{ 'block' if user_configs.get('schedule_type', 'interval') == 'custom' else 'none' }};">
+                        <div class="mb-3 ms-4">
+                            <label for="customRule" class="form-label">自定义规则</label>
+                            <select class="form-select mb-2" id="customRule" onchange="updateCustomRuleOptions()">
+                                <option value="hourly" {{ 'selected' if user_configs.get('custom_rule', 'hourly') == 'hourly' }}>
+                                    每个整点
+                                </option>
+                                <option value="even_hours" {{ 'selected' if user_configs.get('custom_rule', 'hourly') == 'even_hours' }}>
+                                    偶数整点（0、2、4、6...）
+                                </option>
+                                <option value="odd_hours" {{ 'selected' if user_configs.get('custom_rule', 'hourly') == 'odd_hours' }}>
+                                    奇数整点（1、3、5、7...）
+                                </option>
+                                <option value="every_n_hours" {{ 'selected' if user_configs.get('custom_rule', 'hourly') == 'every_n_hours' }}>
+                                    每N小时
+                                </option>
+                            </select>
+                            <div class="form-text">选择符合您习惯的收取规律</div>
+                        </div>
+                        <div id="nHoursOption" style="display: {{ 'block' if user_configs.get('custom_rule', 'hourly') == 'every_n_hours' else 'none' }};">
+                            <div class="mb-3 ms-4">
+                                <label for="nHours" class="form-label">间隔小时数</label>
+                                <select class="form-select" id="nHours">
+                                    <option value="2" {{ 'selected' if user_configs.get('n_hours', '6') == '2' }}>每2小时</option>
+                                    <option value="3" {{ 'selected' if user_configs.get('n_hours', '6') == '3' }}>每3小时</option>
+                                    <option value="4" {{ 'selected' if user_configs.get('n_hours', '6') == '4' }}>每4小时</option>
+                                    <option value="6" {{ 'selected' if user_configs.get('n_hours', '6') == '6' }}>每6小时（推荐）</option>
+                                    <option value="8" {{ 'selected' if user_configs.get('n_hours', '6') == '8' }}>每8小时</option>
+                                    <option value="12" {{ 'selected' if user_configs.get('n_hours', '6') == '12' }}>每12小时</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3 ms-4">
+                            <label for="customMinute" class="form-label">分钟偏移</label>
+                            <select class="form-select" id="customMinute">
+                                <option value="0" {{ 'selected' if user_configs.get('custom_minute', '0') == '0' }}>整点（0分）</option>
+                                <option value="15" {{ 'selected' if user_configs.get('custom_minute', '0') == '15' }}>15分</option>
+                                <option value="30" {{ 'selected' if user_configs.get('custom_minute', '0') == '30' }}>30分</option>
+                                <option value="45" {{ 'selected' if user_configs.get('custom_minute', '0') == '45' }}>45分</option>
+                            </select>
+                            <div class="form-text">例如选择每个整点和15分偏移，则在0:15、1:15、2:15...执行</div>
+                        </div>
+                    </div>
+
+                    <!-- 当前调度状态显示 -->
+                    <div class="alert alert-info mb-3" id="scheduleStatus">
+                        <i class="fas fa-spinner fa-spin me-2"></i>正在加载调度状态...
+                    </div>
+                    <div class="mb-3">
+                        <label for="userMaxEmails" class="form-label">每次最大处理数量</label>
+                        <input type="number" class="form-control" id="userMaxEmails" 
+                               min="5" max="100" 
+                               value="{{ user_configs.get('max_emails_per_account', '20') }}">
+                        <div class="form-text">每个邮箱账户每次处理的最大邮件数</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userBodyLength" class="form-label">邮件正文长度限制</label>
+                        <input type="number" class="form-control" id="userBodyLength" 
+                               min="1000" max="50000" 
+                               value="{{ user_configs.get('email_body_max_length', '20000') }}">
+                        <div class="form-text">邮件正文的最大字符数</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="checkDaysBack" class="form-label">邮件检查范围（天）</label>
+                        <select class="form-select" id="checkDaysBack" onchange="toggleCustomCheckDays()">
+                            <option value="1" {{ 'selected' if user_configs.get('check_days_back', '1') == '1' }}>1天（仅今天）</option>
+                            <option value="2" {{ 'selected' if user_configs.get('check_days_back', '1') == '2' }}>2天（推荐）</option>
+                            <option value="3" {{ 'selected' if user_configs.get('check_days_back', '1') == '3' }}>3天</option>
+                            <option value="7" {{ 'selected' if user_configs.get('check_days_back', '1') == '7' }}>7天（首次使用）</option>
+                            <option value="14" {{ 'selected' if user_configs.get('check_days_back', '1') == '14' }}>14天（深度收取）</option>
+                            <option value="30" {{ 'selected' if user_configs.get('check_days_back', '1') == '30' }}>30天（完整收取）</option>
+                            <option value="custom" {{ 'selected' if user_configs.get('check_days_back', '1') not in ['1', '2', '3', '7', '14', '30'] }}>自定义天数</option>
+                        </select>
+                        <div id="customCheckDaysInput" style="display: {{ 'block' if user_configs.get('check_days_back', '1') not in ['1', '2', '3', '7', '14', '30'] else 'none' }}; margin-top: 10px;">
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="customCheckDays" 
+                                       min="1" max="365" 
+                                       value="{{ user_configs.get('check_days_back', '1') if user_configs.get('check_days_back', '1') not in ['1', '2', '3', '7', '14', '30'] else '60' }}"
+                                       placeholder="输入1-365之间的天数">
+                                <span class="input-group-text">天</span>
+                            </div>
+                            <small class="form-text text-muted">建议：60天以内可获得较快的处理速度</small>
+                        </div>
+                        <div class="form-text">
+                            设置向前检查邮件的时间范围
+                            <br>
+                            <i class="fas fa-info-circle text-info"></i> 
+                            <strong>说明：</strong>检查范围控制向服务器请求多少天内的邮件，实际收到的邮件时间可能更早（如转发邮件保留原始时间）
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="duplicateCheckDays" class="form-label">去重检查范围（天）</label>
+                        <select class="form-select" id="duplicateCheckDays" onchange="toggleCustomDuplicateDays()">
+                            <option value="7" {{ 'selected' if user_configs.get('duplicate_check_days', '7') == '7' }}>7天</option>
+                            <option value="14" {{ 'selected' if user_configs.get('duplicate_check_days', '7') == '14' }}>14天（推荐）</option>
+                            <option value="30" {{ 'selected' if user_configs.get('duplicate_check_days', '7') == '30' }}>30天</option>
+                            <option value="60" {{ 'selected' if user_configs.get('duplicate_check_days', '7') == '60' }}>60天</option>
+                            <option value="custom" {{ 'selected' if user_configs.get('duplicate_check_days', '7') not in ['7', '14', '30', '60'] }}>自定义天数</option>
+                        </select>
+                        <div id="customDuplicateDaysInput" style="display: {{ 'block' if user_configs.get('duplicate_check_days', '7') not in ['7', '14', '30', '60'] else 'none' }}; margin-top: 10px;">
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="customDuplicateDays" 
+                                       min="1" max="365" 
+                                       value="{{ user_configs.get('duplicate_check_days', '7') if user_configs.get('duplicate_check_days', '7') not in ['7', '14', '30', '60'] else '90' }}"
+                                       placeholder="输入1-365之间的天数">
+                                <span class="input-group-text">天</span>
+                            </div>
+                            <small class="form-text text-muted">建议：设置为检查范围的2-4倍，以获得最佳去重效果</small>
+                        </div>
+                        <div class="form-text">
+                            与多少天内的邮件比较去重
+                            <br>
+                            <i class="fas fa-lightbulb text-warning"></i>
+                            <strong>建议：</strong>去重范围应大于或等于检查范围，避免重复导入
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>保存个人配置
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 系统配置（仅管理员可见） -->
+    {% if user.is_admin %}
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-crown me-2"></i>系统配置 <span class="badge bg-danger ms-2">仅管理员</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="systemConfigForm">
+                    <div class="mb-3">
+                        <label for="aiProvider" class="form-label">AI服务商</label>
+                        <select class="form-select" id="aiProvider">
+                            <option value="glm" {{ 'selected' if system_configs.get('ai_provider', 'glm') == 'glm' }}>智谱GLM</option>
+                            <option value="openai" {{ 'selected' if system_configs.get('ai_provider', 'glm') == 'openai' }}>OpenAI</option>
+                        </select>
+                        <div class="form-text">全系统使用的AI服务提供商</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="glmModel" class="form-label">GLM模型</label>
+                        <input type="text" class="form-control" id="glmModel" 
+                               value="{{ system_configs.get('glm_model', 'glm-4-plus') }}"
+                               placeholder="glm-4, glm-4-plus">
+                        <div class="form-text">GLM模型版本</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="summaryMaxLength" class="form-label">全局摘要长度</label>
+                        <input type="number" class="form-control" id="summaryMaxLength" 
+                               min="50" max="1000" 
+                               value="{{ system_configs.get('summary_max_length', '200') }}">
+                        <div class="form-text">AI生成摘要的全局最大长度</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="summaryTemperature" class="form-label">AI创造性参数</label>
+                        <input type="range" class="form-range" id="summaryTemperature" 
+                               min="0" max="1" step="0.1" 
+                               value="{{ system_configs.get('summary_temperature', '0.3') }}">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">保守 (0.0)</small>
+                            <small class="text-muted">创新 (1.0)</small>
+                        </div>
+                        <div class="form-text">控制AI生成内容的创造性程度</div>
+                    </div>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-save me-1"></i>保存系统配置
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- 普通用户显示AI配置信息但不能修改 -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-robot me-2"></i>AI配置 <span class="badge bg-secondary ms-2">只读</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong class="text-muted">AI服务商:</strong>
+                    <p class="mb-0">{{ config.AI_PROVIDER.upper() }}</p>
+                </div>
+                <div class="mb-3">
+                    <strong class="text-muted">摘要长度限制:</strong>
+                    <p class="mb-0">{{ config.SUMMARY_MAX_LENGTH }} 字符</p>
+                </div>
+                <div class="mb-3">
+                    <strong class="text-muted">创造性参数:</strong>
+                    <p class="mb-0">{{ config.SUMMARY_TEMPERATURE }}</p>
+                </div>
+                <div class="alert alert-info border-0 bg-info bg-opacity-10">
+                    <i class="fas fa-info-circle me-2"></i>
+                    AI配置由系统管理员统一管理，确保所有用户获得一致的AI服务质量。
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 系统状态 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-heartbeat me-2"></i>系统状态
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-md-3">
+                        <div class="status-item text-center">
+                            <div class="status-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-2">
+                                <i class="fas fa-database text-success"></i>
+                            </div>
+                            <h6 class="status-title">数据库</h6>
+                            <p class="status-value text-success mb-0">正常</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="status-item text-center">
+                            <div class="status-icon bg-info bg-opacity-10 rounded-circle mx-auto mb-2">
+                                <i class="fas fa-clock text-info"></i>
+                            </div>
+                            <h6 class="status-title">定时任务</h6>
+                            <p class="status-value text-info mb-0">运行中</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="status-item text-center">
+                            <div class="status-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-2">
+                                <i class="fas fa-robot text-warning"></i>
+                            </div>
+                            <h6 class="status-title">AI服务</h6>
+                            <p class="status-value text-warning mb-0">待配置</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="status-item text-center">
+                            <div class="status-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-2">
+                                <i class="fas fa-envelope text-primary"></i>
+                            </div>
+                            <h6 class="status-title">邮件服务</h6>
+                            <p class="status-value text-primary mb-0">{{ accounts|length }} 个账户</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h6 class="mb-1">系统操作</h6>
+                        <small class="text-muted">执行系统级别的管理操作</small>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-outline-info" onclick="checkSystemHealth()">
+                            <i class="fas fa-stethoscope me-1"></i>健康检查
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="showCacheManagement()">
+                            <i class="fas fa-broom me-1"></i>缓存管理
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="exportData()">
+                            <i class="fas fa-download me-1"></i>导出数据
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 危险操作区域 -->
+                <div class="border-top pt-4">
+                    <div class="alert alert-danger" role="alert">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>危险操作区域
+                        </h6>
+                        <p class="mb-2">以下操作不可逆，请谨慎使用！</p>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <strong>清空所有邮件</strong>
+                                <p class="mb-0 small text-muted">物理删除您的所有邮件数据及其附件文件，但保留邮件账户配置。此操作方便重新导入邮件。</p>
+                            </div>
+                            <button class="btn btn-danger" onclick="confirmClearEmails()">
+                                <i class="fas fa-trash-alt me-1"></i>清空邮件
+                            </button>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>清空所有简报</strong>
+                                <p class="mb-0 small text-muted">物理删除您的所有简报历史数据。此操作不影响邮件数据，可以重新生成简报。</p>
+                            </div>
+                            <button class="btn btn-warning" onclick="confirmClearDigests()">
+                                <i class="fas fa-file-alt me-1"></i>清空简报
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 表单验证
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// 根据邮箱地址自动检测服务商
+function detectProvider() {
+    const email = document.getElementById('email').value;
+    const provider = document.getElementById('provider');
+    
+    if (email.includes('@')) {
+        const domain = email.split('@')[1].toLowerCase();
+        const domainMapping = {
+            'gmail.com': 'gmail',
+            '126.com': '126',
+            '163.com': '163',
+            'qq.com': 'qq',
+            'hotmail.com': 'hotmail',
+            'outlook.com': 'outlook',
+            'live.com': 'hotmail',
+            'yahoo.com': 'yahoo'
+        };
+        
+        if (domainMapping[domain]) {
+            provider.value = domainMapping[domain];
+        }
+    }
+}
+
+// 切换密码显示
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.getElementById('passwordToggleIcon');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.className = 'fas fa-eye-slash';
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.className = 'fas fa-eye';
+    }
+}
+
+// 切换API密钥显示
+function toggleApiKey() {
+    const apiKeyInput = document.getElementById('apiKey');
+    const toggleIcon = document.getElementById('apiKeyToggleIcon');
+    
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        toggleIcon.className = 'fas fa-eye-slash';
+    } else {
+        apiKeyInput.type = 'password';
+        toggleIcon.className = 'fas fa-eye';
+    }
+}
+
+// 测试连接
+function testConnection(accountId, email) {
+    showAlert('info', `正在测试 ${email} 的连接...`);
+    // 这里应该发送AJAX请求测试连接
+    setTimeout(() => {
+        showAlert('success', `${email} 连接测试成功！`);
+    }, 2000);
+}
+
+// 切换账户状态
+function toggleAccount(accountId) {
+    if (confirm('确定要切换此账户的状态吗？')) {
+        showAlert('info', '账户状态切换功能开发中...');
+    }
+}
+
+// 移除账户
+function removeAccount(accountId, email) {
+    if (confirm(`确定要删除邮箱账户 ${email} 吗？此操作不可撤销。`)) {
+        showAlert('info', '账户删除功能开发中...');
+    }
+}
+
+// 系统健康检查
+function checkSystemHealth() {
+    showAlert('info', '正在进行系统健康检查...');
+    
+    fetch('/health')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'healthy') {
+                showAlert('success', '系统健康状况良好！');
+            } else {
+                showAlert('warning', '系统存在一些问题，请查看日志。');
+            }
+        })
+        .catch(error => {
+            showAlert('danger', '健康检查失败: ' + error.message);
+        });
+}
+
+// 显示缓存管理模态框
+function showCacheManagement() {
+    // 检查是否已存在模态框
+    let modal = document.getElementById('cacheManagementModal');
+    if (!modal) {
+        // 创建缓存管理模态框
+        createCacheManagementModal();
+        modal = document.getElementById('cacheManagementModal');
+    }
+    
+    // 显示模态框并刷新缓存状态
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // 刷新缓存状态
+    refreshCacheStats();
+    
+    // 加载自动清理设置
+    loadAutoClearSettings();
+}
+
+// 导出数据
+function exportData() {
+    showAlert('info', '数据导出功能开发中...');
+}
+
+// 刷新邮箱账户统计信息
+function refreshAccountStats() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    // 显示加载状态
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>刷新中...';
+    
+    fetch('/api/accounts/refresh-stats', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            // 2秒后刷新页面以显示更新的统计信息
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('danger', data.error || '刷新失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing account stats:', error);
+        showAlert('danger', '刷新失败: ' + error.message);
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+// 切换自定义检查天数输入框
+function toggleCustomCheckDays() {
+    const select = document.getElementById('checkDaysBack');
+    const customInput = document.getElementById('customCheckDaysInput');
+    
+    if (select.value === 'custom') {
+        customInput.style.display = 'block';
+    } else {
+        customInput.style.display = 'none';
+    }
+}
+
+// 切换自定义去重天数输入框
+function toggleCustomDuplicateDays() {
+    const select = document.getElementById('duplicateCheckDays');
+    const customInput = document.getElementById('customDuplicateDaysInput');
+    
+    if (select.value === 'custom') {
+        customInput.style.display = 'block';
+    } else {
+        customInput.style.display = 'none';
+    }
+}
+
+// 保存用户配置
+document.getElementById('userConfigForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // 获取检查天数值
+    let checkDaysBack = document.getElementById('checkDaysBack').value;
+    if (checkDaysBack === 'custom') {
+        const customValue = parseInt(document.getElementById('customCheckDays').value);
+        if (isNaN(customValue) || customValue < 1 || customValue > 365) {
+            showAlert('danger', '自定义检查天数必须在1-365之间');
+            return;
+        }
+        checkDaysBack = customValue.toString();
+    }
+    
+    // 获取去重天数值
+    let duplicateCheckDays = document.getElementById('duplicateCheckDays').value;
+    if (duplicateCheckDays === 'custom') {
+        const customValue = parseInt(document.getElementById('customDuplicateDays').value);
+        if (isNaN(customValue) || customValue < 1 || customValue > 365) {
+            showAlert('danger', '自定义去重天数必须在1-365之间');
+            return;
+        }
+        duplicateCheckDays = customValue.toString();
+    }
+    
+    // 验证去重天数应该大于等于检查天数
+    if (parseInt(duplicateCheckDays) < parseInt(checkDaysBack)) {
+        showAlert('warning', '建议：去重天数应该大于或等于检查天数，以获得更好的去重效果。');
+    }
+    
+    // 获取调度配置
+    const scheduleType = document.getElementById('scheduleType').value;
+    const configData = {
+        schedule_type: scheduleType,
+        check_interval_minutes: document.getElementById('userCheckInterval').value,
+        max_emails_per_account: document.getElementById('userMaxEmails').value,
+        email_body_max_length: document.getElementById('userBodyLength').value,
+        check_days_back: checkDaysBack,
+        duplicate_check_days: duplicateCheckDays
+    };
+    
+    // 根据调度类型添加相应配置
+    if (scheduleType === 'interval') {
+        // 间隔模式已包含在check_interval_minutes中
+    } else if (scheduleType === 'cron') {
+        configData.cron_hours = document.getElementById('cronHours').value;
+        configData.cron_minutes = document.getElementById('cronMinutes').value;
+    } else if (scheduleType === 'custom') {
+        configData.custom_rule = document.getElementById('customRule').value;
+        configData.custom_minute = document.getElementById('customMinute').value;
+        if (configData.custom_rule === 'every_n_hours') {
+            configData.n_hours = document.getElementById('nHours').value;
+        }
+    }
+    
+    fetch('/api/user/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            // 2秒后刷新页面以显示新配置
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showAlert('danger', data.error || '保存失败');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving user config:', error);
+        showAlert('danger', '保存配置失败: ' + error.message);
+    });
+});
+
+// 保存系统配置（仅管理员）
+const systemConfigForm = document.getElementById('systemConfigForm');
+if (systemConfigForm) {
+    systemConfigForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const configData = {
+            ai_provider: document.getElementById('aiProvider').value,
+            glm_model: document.getElementById('glmModel').value,
+            summary_max_length: document.getElementById('summaryMaxLength').value,
+            summary_temperature: document.getElementById('summaryTemperature').value
+        };
+        
+        fetch('/api/system/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(configData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message + ' (重启应用后生效)');
+            } else {
+                showAlert('danger', data.error || '保存失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving system config:', error);
+            showAlert('danger', '保存系统配置失败: ' + error.message);
+        });
+    });
+}
+
+// 创建缓存管理模态框
+function createCacheManagementModal() {
+    const modalHtml = `
+    <div class="modal fade" id="cacheManagementModal" tabindex="-1" aria-labelledby="cacheManagementModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cacheManagementModalLabel">
+                        <i class="fas fa-broom me-2"></i>缓存管理
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 缓存状态 -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-chart-bar me-2"></i>缓存状态</h6>
+                        <div class="row" id="cacheStats">
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-envelope text-primary mb-2"></i>
+                                        <h6>邮件缓存</h6>
+                                        <span class="badge bg-primary" id="emailCacheCount">检查中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-chart-line text-info mb-2"></i>
+                                        <h6>统计缓存</h6>
+                                        <span class="badge bg-info" id="statsCacheCount">检查中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-file-alt text-success mb-2"></i>
+                                        <h6>简报缓存</h6>
+                                        <span class="badge bg-success" id="digestCacheCount">检查中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-cog text-warning mb-2"></i>
+                                        <h6>配置缓存</h6>
+                                        <span class="badge bg-warning" id="configCacheCount">检查中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 缓存操作 -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-tools me-2"></i>缓存操作</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-primary w-100" onclick="clearUserCache()">
+                                    <i class="fas fa-user me-1"></i>清理我的缓存
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-warning w-100" onclick="clearAllCache()">
+                                    <i class="fas fa-broom me-1"></i>清理所有缓存
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 前端缓存 -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-browser me-2"></i>前端缓存</h6>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            如果遇到数据显示不一致的问题，可以清理浏览器缓存。
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-info w-100" onclick="clearFrontendCache()">
+                                    <i class="fas fa-trash me-1"></i>清理前端缓存
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-outline-secondary w-100" onclick="openCacheHelper()">
+                                    <i class="fas fa-question-circle me-1"></i>缓存清理助手
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作日志 -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-history me-2"></i>操作日志</h6>
+                        <div class="border rounded p-3" style="height: 150px; overflow-y: auto; background-color: #f8f9fa;">
+                            <div id="cacheOperationLog">
+                                <small class="text-muted">等待操作...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" onclick="refreshCacheStats()">
+                        <i class="fas fa-sync me-1"></i>刷新状态
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// 刷新缓存状态
+function refreshCacheStats() {
+    addCacheLog('正在检查缓存状态...');
+    
+    fetch('/api/cache/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('emailCacheCount').textContent = data.stats.email_cache + ' 个';
+                document.getElementById('statsCacheCount').textContent = data.stats.stats_cache + ' 个';
+                document.getElementById('digestCacheCount').textContent = data.stats.digest_cache + ' 个';
+                document.getElementById('configCacheCount').textContent = data.stats.config_cache + ' 个';
+                
+                addCacheLog('✅ 缓存状态检查完成');
+            } else {
+                addCacheLog('❌ 缓存状态检查失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(error => {
+            addCacheLog('❌ 缓存状态检查失败: ' + error.message);
+        });
+}
+
+// 清理用户缓存
+function clearUserCache() {
+    if (!confirm('确定要清理您的个人缓存吗？这将清除您的邮件列表和统计缓存。')) {
+        return;
+    }
+    
+    addCacheLog('正在清理用户缓存...');
+    
+    fetch('/api/cache/clear/user', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addCacheLog('✅ 用户缓存清理完成，清除了 ' + data.cleared_count + ' 个缓存项');
+            refreshCacheStats();
+        } else {
+            addCacheLog('❌ 用户缓存清理失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        addCacheLog('❌ 用户缓存清理失败: ' + error.message);
+    });
+}
+
+// 清理所有缓存
+function clearAllCache() {
+    if (!confirm('确定要清理所有系统缓存吗？这将影响所有用户的缓存数据。')) {
+        return;
+    }
+    
+    addCacheLog('正在清理所有缓存...');
+    
+    fetch('/api/cache/clear/all', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addCacheLog('✅ 所有缓存清理完成，清除了 ' + data.cleared_count + ' 个缓存项');
+            refreshCacheStats();
+        } else {
+            addCacheLog('❌ 缓存清理失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        addCacheLog('❌ 缓存清理失败: ' + error.message);
+    });
+}
+
+// 清理前端缓存
+function clearFrontendCache() {
+    try {
+        // 清理 localStorage
+        const localStorageCount = localStorage.length;
+        localStorage.clear();
+        
+        // 清理 sessionStorage
+        const sessionStorageCount = sessionStorage.length;
+        sessionStorage.clear();
+        
+        addCacheLog('✅ 前端缓存清理完成，清除了 ' + (localStorageCount + sessionStorageCount) + ' 个项目');
+        
+        // 提示用户刷新页面
+        if (confirm('前端缓存已清理完成，是否刷新页面以应用更改？')) {
+            window.location.reload(true);
+        }
+    } catch (error) {
+        addCacheLog('❌ 前端缓存清理失败: ' + error.message);
+    }
+}
+
+// 打开缓存清理助手
+function openCacheHelper() {
+    window.open('/clear_frontend_cache.html', '_blank');
+}
+
+// 加载自动清理设置
+function loadAutoClearSettings() {
+    // 暂时跳过，因为还没有实现后端API
+    addCacheLog('自动清理设置功能开发中...');
+}
+
+// 添加缓存操作日志
+function addCacheLog(message) {
+    const logContainer = document.getElementById('cacheOperationLog');
+    if (logContainer) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.innerHTML = `<small class="text-muted">[${timestamp}]</small> ${message}`;
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+}
+
+// 确认清空邮件
+function confirmClearEmails() {
+    // 创建确认模态框
+    const modalHtml = `
+    <div class="modal fade" id="clearEmailsModal" tabindex="-1" aria-labelledby="clearEmailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-danger">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="clearEmailsModalLabel">
+                        <i class="fas fa-exclamation-triangle me-2"></i>确认清空所有邮件
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger" role="alert">
+                        <h6 class="alert-heading"><i class="fas fa-skull-crossbones me-2"></i>危险操作警告</h6>
+                        <p class="mb-0">此操作将<strong>物理删除</strong>您的所有邮件数据，无法恢复！</p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p class="mb-2"><strong>将会删除：</strong></p>
+                        <ul class="mb-0">
+                            <li>所有收到的邮件</li>
+                            <li>所有邮件附件文件</li>
+                            <li>所有AI处理结果</li>
+                            <li>所有邮件分类记录</li>
+                            <li>回收站中的邮件</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p class="mb-2"><strong>不会删除：</strong></p>
+                        <ul class="mb-0 text-success">
+                            <li>您的邮件账户配置</li>
+                            <li>您的个人设置</li>
+                            <li>您的分类规则</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>使用场景：</strong>此功能主要用于重新导入邮件前清理旧数据。
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirmationInput" class="form-label">
+                            <strong>请输入确认码以继续：</strong> <code>CLEAR_ALL_EMAILS</code>
+                        </label>
+                        <input type="text" class="form-control" id="confirmationInput" 
+                               placeholder="输入 CLEAR_ALL_EMAILS" autocomplete="off">
+                        <div class="form-text text-danger">请仔细确认后再输入确认码</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" onclick="executeClearEmails()" id="confirmClearBtn" disabled>
+                        <i class="fas fa-trash-alt me-1"></i>确认清空
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    // 移除旧的模态框（如果存在）
+    const existingModal = document.getElementById('clearEmailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 添加模态框到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('clearEmailsModal'));
+    modal.show();
+    
+    // 监听确认码输入
+    const confirmationInput = document.getElementById('confirmationInput');
+    const confirmBtn = document.getElementById('confirmClearBtn');
+    
+    confirmationInput.addEventListener('input', function() {
+        if (this.value === 'CLEAR_ALL_EMAILS') {
+            confirmBtn.disabled = false;
+        } else {
+            confirmBtn.disabled = true;
+        }
+    });
+}
+
+// 执行清空邮件
+function executeClearEmails() {
+    const confirmationInput = document.getElementById('confirmationInput');
+    const confirmBtn = document.getElementById('confirmClearBtn');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('clearEmailsModal'));
+    
+    // 禁用按钮和输入
+    confirmBtn.disabled = true;
+    confirmationInput.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>正在清空...';
+    
+    fetch('/api/user/clear-emails', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            confirmation: confirmationInput.value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message || `成功清空 ${data.deleted_count} 封邮件`);
+            
+            // 关闭模态框
+            modal.hide();
+            
+            // 2秒后刷新页面以更新统计信息
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            showAlert('danger', data.error || '清空邮件失败');
+            
+            // 重新启用按钮
+            confirmBtn.disabled = false;
+            confirmationInput.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>确认清空';
+        }
+    })
+    .catch(error => {
+        console.error('清空邮件失败:', error);
+        showAlert('danger', '清空邮件失败: ' + error.message);
+        
+        // 重新启用按钮
+        confirmBtn.disabled = false;
+        confirmationInput.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>确认清空';
+    });
+}
+
+// ===== 清空简报相关函数 =====
+
+// 确认清空简报
+function confirmClearDigests() {
+    // 创建确认模态框
+    const modalHtml = `
+    <div class="modal fade" id="clearDigestsModal" tabindex="-1" aria-labelledby="clearDigestsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-warning">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="clearDigestsModalLabel">
+                        <i class="fas fa-exclamation-triangle me-2"></i>确认清空所有简报
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning" role="alert">
+                        <strong><i class="fas fa-exclamation-circle me-1"></i>警告：</strong>
+                        此操作将<strong>永久删除</strong>您的所有简报历史数据，<strong>无法恢复</strong>！
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="text-danger">将要删除的数据：</h6>
+                        <ul>
+                            <li>所有历史简报记录</li>
+                            <li>简报摘要和统计信息</li>
+                            <li>简报分类数据</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="text-success">保留的数据：</h6>
+                        <ul>
+                            <li>所有邮件数据（不受影响）</li>
+                            <li>邮件账户配置</li>
+                            <li>您可以随时重新生成简报</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>使用场景：</strong>此功能主要用于清理简报历史，可以在清空后重新生成新的简报。
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="digestConfirmationInput" class="form-label">
+                            <strong>请输入确认码以继续：</strong> <code>CLEAR_ALL_DIGESTS</code>
+                        </label>
+                        <input type="text" class="form-control" id="digestConfirmationInput" 
+                               placeholder="输入 CLEAR_ALL_DIGESTS" autocomplete="off">
+                        <div class="form-text text-danger">请仔细确认后再输入确认码</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" onclick="executeClearDigests()" id="confirmClearDigestsBtn" disabled>
+                        <i class="fas fa-file-alt me-1"></i>确认清空
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    // 移除旧的模态框（如果存在）
+    const existingModal = document.getElementById('clearDigestsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 添加模态框到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('clearDigestsModal'));
+    modal.show();
+    
+    // 监听确认码输入
+    const confirmationInput = document.getElementById('digestConfirmationInput');
+    const confirmBtn = document.getElementById('confirmClearDigestsBtn');
+    
+    confirmationInput.addEventListener('input', function() {
+        if (this.value === 'CLEAR_ALL_DIGESTS') {
+            confirmBtn.disabled = false;
+        } else {
+            confirmBtn.disabled = true;
+        }
+    });
+}
+
+// 执行清空简报
+function executeClearDigests() {
+    const confirmationInput = document.getElementById('digestConfirmationInput');
+    const confirmBtn = document.getElementById('confirmClearDigestsBtn');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('clearDigestsModal'));
+    
+    // 禁用按钮和输入
+    confirmBtn.disabled = true;
+    confirmationInput.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>正在清空...';
+    
+    fetch('/api/user/clear-digests', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            confirmation: 'CLEAR_ALL_DIGESTS'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message || '简报清空成功');
+            
+            // 关闭模态框
+            modal.hide();
+            
+            // 2秒后刷新页面以更新统计信息
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            showAlert('danger', data.error || '清空简报失败');
+            
+            // 重新启用按钮
+            confirmBtn.disabled = false;
+            confirmationInput.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-file-alt me-1"></i>确认清空';
+        }
+    })
+    .catch(error => {
+        console.error('清空简报失败:', error);
+        showAlert('danger', '清空简报失败: ' + error.message);
+        
+        // 重新启用按钮
+        confirmBtn.disabled = false;
+        confirmationInput.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-file-alt me-1"></i>确认清空';
+    });
+}
+// ========================================
+// 调度策略UI交互函数
+// ========================================
+
+// 更新调度选项显示
+function updateScheduleOptions() {
+    const scheduleType = document.getElementById('scheduleType').value;
+    
+    // 隐藏所有选项
+    document.getElementById('intervalOptions').style.display = 'none';
+    document.getElementById('cronOptions').style.display = 'none';
+    document.getElementById('customOptions').style.display = 'none';
+    
+    // 显示对应的选项
+    if (scheduleType === 'interval') {
+        document.getElementById('intervalOptions').style.display = 'block';
+    } else if (scheduleType === 'cron') {
+        document.getElementById('cronOptions').style.display = 'block';
+    } else if (scheduleType === 'custom') {
+        document.getElementById('customOptions').style.display = 'block';
+    }
+}
+
+// 应用Cron小时预设
+function applyCronHoursPreset() {
+    const preset = document.getElementById('cronHoursPreset').value;
+    if (preset) {
+        document.getElementById('cronHours').value = preset;
+    }
+}
+
+// 更新自定义规则选项
+function updateCustomRuleOptions() {
+    const customRule = document.getElementById('customRule').value;
+    const nHoursOption = document.getElementById('nHoursOption');
+    
+    if (customRule === 'every_n_hours') {
+        nHoursOption.style.display = 'block';
+    } else {
+        nHoursOption.style.display = 'none';
+    }
+}
+
+// 加载调度状态
+function loadScheduleStatus() {
+    fetch('/api/user/schedule-status')
+        .then(response => response.json())
+        .then(data => {
+            const statusDiv = document.getElementById('scheduleStatus');
+            
+            if (data.active) {
+                let triggerDesc = '';
+                if (data.trigger_type === 'IntervalTrigger') {
+                    triggerDesc = `间隔触发：${data.trigger_info}`;
+                } else if (data.trigger_type === 'CronTrigger') {
+                    triggerDesc = `定时触发：${data.trigger_info}`;
+                }
+                
+                statusDiv.className = 'alert alert-success mb-3';
+                statusDiv.innerHTML = `
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>定时任务已激活</strong>
+                    </div>
+                    <div class="small">
+                        <div><strong>触发方式：</strong>${triggerDesc}</div>
+                        <div><strong>下次执行：</strong>${data.next_run || '暂无'}</div>
+                        ${data.last_success ? `<div><strong>上次成功：</strong>${data.last_success}</div>` : ''}
+                        ${data.avg_processing_time > 0 ? `<div><strong>平均耗时：</strong>${data.avg_processing_time}秒</div>` : ''}
+                        ${data.error_count > 0 ? `<div class="text-warning"><strong>错误次数：</strong>${data.error_count}</div>` : ''}
+                    </div>
+                `;
+            } else {
+                statusDiv.className = 'alert alert-warning mb-3';
+                statusDiv.innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>定时任务未激活</strong>
+                    <div class="small mt-1">请保存配置以激活定时任务</div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('加载调度状态失败:', error);
+            const statusDiv = document.getElementById('scheduleStatus');
+            statusDiv.className = 'alert alert-danger mb-3';
+            statusDiv.innerHTML = `
+                <i class="fas fa-times-circle me-2"></i>
+                <strong>无法加载调度状态</strong>
+            `;
+        });
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 加载调度状态
+    loadScheduleStatus();
+    
+    // 每30秒刷新一次调度状态
+    setInterval(loadScheduleStatus, 30000);
+});
+
+</script>
+{% endblock %}

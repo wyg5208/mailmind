@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block title %}系统维护中 - AI邮件简报系统{% endblock %}
+
+{% block content %}
+<!-- 维护状态统计卡片 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="row">
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-warning bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-tools text-warning"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-warning mb-0 me-2">{{ error_code }}</h6>
+                            <small class="stat-label-mini text-muted">维护代码</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-info bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-clock text-info"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-info mb-0 me-2" id="maintenance-progress">0</h6>
+                            <small class="stat-label-mini text-muted">进度百分比</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-success bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-calendar-check text-success"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-success mb-0 me-2" id="estimated-time">--</h6>
+                            <small class="stat-label-mini text-muted">预计完成</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3 mb-2">
+                <div class="stat-card-mini card border-0 shadow-sm">
+                    <div class="card-body text-center py-2">
+                        <div class="d-flex align-items-center">
+                            <div class="stat-icon-mini bg-primary bg-opacity-10 rounded-circle me-2">
+                                <i class="fas fa-server text-primary"></i>
+                            </div>
+                            <h6 class="stat-number-mini text-primary mb-0 me-2">升级</h6>
+                            <small class="stat-label-mini text-muted">维护类型</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 主要维护信息卡片 -->
+<div class="row">
+    <div class="col-12">
+        <div class="maintenance-card card border-0 shadow-sm mb-4">
+            <div class="card-header bg-gradient-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="card-title mb-1">
+                            <i class="fas fa-wrench me-2"></i>系统升级维护中
+                        </h4>
+                        <p class="card-subtitle mb-0 opacity-75">
+                            <i class="fas fa-info-circle me-1"></i>
+                            为了提供更好的服务体验，系统正在进行升级维护
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-light text-primary fs-6 px-3 py-2">
+                            <i class="fas fa-code me-1"></i>维护代码: {{ error_code }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- 维护状态摘要 -->
+                <div class="alert alert-warning border-0 bg-warning bg-opacity-10 mb-4">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="alert-heading mb-2">维护状态说明</h6>
+                                    <p class="mb-0">
+                                        系统正在进行重要功能升级，包括性能优化、安全增强和新功能部署。
+                                        维护期间部分功能可能暂时不可用，感谢您的耐心等待。
+                                    </p>
+                                </div>
+                                <div class="flex-shrink-0 ms-3">
+                                    <div class="maintenance-status">
+                                        <div class="spinner-border text-warning" role="status" style="width: 2rem; height: 2rem;">
+                                            <span class="visually-hidden">维护中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 维护进度条 -->
+                <div class="maintenance-progress mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">
+                            <i class="fas fa-tasks text-primary me-2"></i>维护进度
+                        </h6>
+                        <small class="text-muted">
+                            <span id="progress-text">正在进行中...</span>
+                        </small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-gradient-primary progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             id="progress-bar"
+                             style="width: 0%"
+                             aria-valuenow="0" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 维护详情 -->
+                <div class="maintenance-details">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="detail-card p-3 bg-light rounded">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-clock text-info me-2"></i>
+                                    <strong>开始时间</strong>
+                                </div>
+                                <p class="mb-0 text-muted" id="start-time">--</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="detail-card p-3 bg-light rounded">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-flag-checkered text-success me-2"></i>
+                                    <strong>预计完成</strong>
+                                </div>
+                                <p class="mb-0 text-muted" id="end-time">--</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="detail-card p-3 bg-light rounded">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-cogs text-warning me-2"></i>
+                                    <strong>维护类型</strong>
+                                </div>
+                                <p class="mb-0 text-muted">系统升级 & 性能优化</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="detail-card p-3 bg-light rounded">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-shield-alt text-primary me-2"></i>
+                                    <strong>数据安全</strong>
+                                </div>
+                                <p class="mb-0 text-muted">所有数据已安全备份</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        维护完成后系统将自动恢复正常服务
+                    </small>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+                            <i class="fas fa-sync-alt me-1"></i>刷新状态
+                        </button>
+                        <a href="mailto:support@example.com" class="btn btn-outline-secondary btn-sm ms-2">
+                            <i class="fas fa-envelope me-1"></i>联系支持
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 系统信息 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="system-info card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>维护信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="info-item">
+                            <strong class="text-muted">维护版本:</strong>
+                            <span class="ms-2 badge bg-info">v2.1.0</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="info-item">
+                            <strong class="text-muted">预计时长:</strong>
+                            <span class="ms-2">约 1 小时</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="info-item">
+                            <strong class="text-muted">影响范围:</strong>
+                            <span class="ms-2">全部功能</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                <h6 class="text-muted mb-3">本次升级内容</h6>
+                <div class="upgrade-features">
+                    <div class="feature-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-rocket text-primary me-2"></i>
+                            <span>性能优化</span>
+                        </div>
+                        <span class="badge bg-success">已完成</span>
+                    </div>
+                    <div class="feature-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-shield-alt text-info me-2"></i>
+                            <span>安全增强</span>
+                        </div>
+                        <span class="badge bg-warning">进行中</span>
+                    </div>
+                    <div class="feature-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-plus-circle text-success me-2"></i>
+                            <span>新功能部署</span>
+                        </div>
+                        <span class="badge bg-secondary">待开始</span>
+                    </div>
+                    <div class="feature-item d-flex justify-content-between align-items-center py-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-database text-warning me-2"></i>
+                            <span>数据库优化</span>
+                        </div>
+                        <span class="badge bg-secondary">待开始</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 维护页面专用样式 */
+.maintenance-card {
+    transition: all 0.3s ease;
+}
+
+.maintenance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.detail-card {
+    transition: all 0.2s ease;
+    border: 1px solid #e2e8f0;
+}
+
+.detail-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.maintenance-status .spinner-border {
+    animation: spin 1s linear infinite;
+}
+
+.progress-bar {
+    transition: width 0.5s ease;
+}
+
+.feature-item {
+    transition: background-color 0.2s ease;
+}
+
+.feature-item:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+
+/* 统计卡片动画 */
+.stat-card-mini {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card-mini:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.maintenance-status {
+    animation: pulse 2s infinite;
+}
+
+/* 进度条动画 */
+@keyframes progress-animation {
+    0% { background-position: 0 0; }
+    100% { background-position: 40px 0; }
+}
+
+.progress-bar-animated {
+    animation: progress-animation 1s linear infinite;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .maintenance-card .card-header {
+        padding: 1rem;
+    }
+    
+    .maintenance-card .card-header .d-flex {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .maintenance-card .card-header .text-end {
+        margin-top: 1rem;
+        text-align: center !important;
+    }
+    
+    .detail-card {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 维护页面JavaScript功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 计算维护时间
+    calculateMaintenanceTimes();
+    
+    // 启动进度模拟
+    simulateProgress();
+    
+    // 每30秒更新一次时间
+    setInterval(updateTimes, 30000);
+});
+
+// 计算维护开始时间和预计结束时间
+function calculateMaintenanceTimes() {
+    const now = new Date();
+    
+    // 开始时间设为当前时间前30分钟
+    const startTime = new Date(now.getTime() - 30 * 60 * 1000);
+    
+    // 结束时间设为当前时间后1小时的整点
+    const endTime = new Date();
+    endTime.setHours(now.getHours() + 1, 0, 0, 0); // 下一个整点
+    
+    // 格式化时间显示
+    const formatOptions = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Shanghai'
+    };
+    
+    // 更新页面显示
+    document.getElementById('start-time').textContent = startTime.toLocaleString('zh-CN', formatOptions);
+    document.getElementById('end-time').textContent = endTime.toLocaleString('zh-CN', formatOptions);
+    
+    // 更新预计完成时间（只显示时间）
+    const timeOnly = endTime.toLocaleTimeString('zh-CN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+    });
+    document.getElementById('estimated-time').textContent = timeOnly;
+    
+    // 存储结束时间用于倒计时
+    window.maintenanceEndTime = endTime;
+}
+
+// 模拟维护进度
+function simulateProgress() {
+    const now = new Date();
+    const startTime = new Date(now.getTime() - 30 * 60 * 1000); // 30分钟前开始
+    const endTime = window.maintenanceEndTime;
+    
+    // 计算总维护时长（毫秒）
+    const totalDuration = endTime.getTime() - startTime.getTime();
+    
+    // 计算已经过去的时间
+    const elapsed = now.getTime() - startTime.getTime();
+    
+    // 计算进度百分比
+    let progress = Math.max(0, Math.min(100, (elapsed / totalDuration) * 100));
+    
+    // 添加一些随机性，让进度看起来更真实
+    progress = Math.min(95, progress + Math.random() * 10);
+    
+    // 更新进度显示
+    updateProgress(Math.round(progress));
+    
+    // 每分钟更新一次进度
+    setInterval(() => {
+        const currentTime = new Date();
+        const currentElapsed = currentTime.getTime() - startTime.getTime();
+        let currentProgress = Math.max(0, Math.min(100, (currentElapsed / totalDuration) * 100));
+        currentProgress = Math.min(98, currentProgress + Math.random() * 5);
+        updateProgress(Math.round(currentProgress));
+    }, 60000);
+}
+
+// 更新进度显示
+function updateProgress(percentage) {
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const maintenanceProgress = document.getElementById('maintenance-progress');
+    
+    // 更新进度条
+    progressBar.style.width = percentage + '%';
+    progressBar.setAttribute('aria-valuenow', percentage);
+    
+    // 更新进度文本
+    if (percentage < 25) {
+        progressText.textContent = '初始化中...';
+    } else if (percentage < 50) {
+        progressText.textContent = '系统升级中...';
+    } else if (percentage < 75) {
+        progressText.textContent = '安全检查中...';
+    } else if (percentage < 95) {
+        progressText.textContent = '最终测试中...';
+    } else {
+        progressText.textContent = '即将完成...';
+    }
+    
+    // 更新统计卡片中的进度
+    maintenanceProgress.textContent = percentage;
+    
+    // 根据进度更新进度条颜色
+    if (percentage < 30) {
+        progressBar.className = 'progress-bar bg-danger progress-bar-striped progress-bar-animated';
+    } else if (percentage < 70) {
+        progressBar.className = 'progress-bar bg-warning progress-bar-striped progress-bar-animated';
+    } else {
+        progressBar.className = 'progress-bar bg-success progress-bar-striped progress-bar-animated';
+    }
+}
+
+// 更新时间显示
+function updateTimes() {
+    const now = new Date();
+    const endTime = window.maintenanceEndTime;
+    
+    if (endTime && now < endTime) {
+        const remaining = endTime.getTime() - now.getTime();
+        const minutes = Math.ceil(remaining / (1000 * 60));
+        
+        if (minutes > 0) {
+            document.getElementById('estimated-time').textContent = `${minutes}分钟后`;
+        } else {
+            document.getElementById('estimated-time').textContent = '即将完成';
+        }
+    }
+}
+
+// 添加一些动态效果
+function addDynamicEffects() {
+    // 随机更新升级功能状态
+    const features = document.querySelectorAll('.feature-item .badge');
+    
+    setInterval(() => {
+        features.forEach((badge, index) => {
+            if (badge.textContent === '进行中' && Math.random() > 0.7) {
+                // 有30%概率将"进行中"变为"已完成"
+                badge.textContent = '已完成';
+                badge.className = 'badge bg-success';
+                
+                // 如果有下一个功能，将其状态改为"进行中"
+                if (features[index + 1] && features[index + 1].textContent === '待开始') {
+                    features[index + 1].textContent = '进行中';
+                    features[index + 1].className = 'badge bg-warning';
+                }
+            }
+        });
+    }, 120000); // 每2分钟检查一次
+}
+
+// 启动动态效果
+setTimeout(addDynamicEffects, 5000);
+
+// 添加页面刷新提示
+function showRefreshReminder() {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-info alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-info-circle me-2"></i>
+        建议定期刷新页面获取最新维护状态
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // 10秒后自动移除
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 10000);
+}
+
+// 5分钟后显示刷新提醒
+setTimeout(showRefreshReminder, 300000);
+</script>
+{% endblock %}
