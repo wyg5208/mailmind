@@ -429,11 +429,116 @@ def add_account():
     
     return redirect(url_for('settings'))
 
+@app.route('/api/email-account/delete/<int:account_id>', methods=['DELETE'])
+@auth_service.require_login
+def delete_email_account(account_id):
+    """删除邮箱账户"""
+    try:
+        user = auth_service.get_current_user()
+        success = db.delete_user_email_account(account_id, user['id'])
+        
+        if success:
+            logger.info(f"用户 {user['id']} 成功删除邮箱账户 ID: {account_id}")
+            return jsonify({
+                'success': True,
+                'message': '邮箱账户删除成功'
+            })
+        else:
+            logger.warning(f"用户 {user['id']} 删除邮箱账户失败 ID: {account_id}")
+            return jsonify({
+                'success': False,
+                'message': '账户不存在或删除失败'
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"删除邮箱账户时出错: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'删除失败: {str(e)}'
+        }), 500
+
+@app.route('/api/email-account/transfer/<int:account_id>', methods=['POST'])
+@auth_service.require_login
+def transfer_email_account(account_id):
+    """转移邮箱账户到其他用户"""
+    try:
+        user = auth_service.get_current_user()
+        data = request.get_json()
+        
+        if not data or 'target_username' not in data:
+            return jsonify({
+                'success': False,
+                'message': '缺少目标用户名'
+            }), 400
+        
+        target_username = data['target_username'].strip()
+        
+        if not target_username:
+            return jsonify({
+                'success': False,
+                'message': '目标用户名不能为空'
+            }), 400
+        
+        # 防止转移给自己
+        if target_username == user['username']:
+            return jsonify({
+                'success': False,
+                'message': '不能转移给自己'
+            }), 400
+        
+        success, message = db.transfer_email_account(account_id, user['id'], target_username)
+        
+        if success:
+            logger.info(f"用户 {user['id']} 成功转移邮箱账户 ID: {account_id} 到用户: {target_username}")
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            logger.warning(f"用户 {user['id']} 转移邮箱账户失败: {message}")
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"转移邮箱账户时出错: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'转移失败: {str(e)}'
+        }), 500
+
 @app.route('/trigger', methods=['POST'])
 @auth_service.require_login
 def trigger_processing():
     """手动触发邮件处理 - 智能选择Celery或线程模式"""
     user = auth_service.get_current_user()
+    
+    # ⚠️ 首先检查用户是否配置了邮箱账户
+    user_accounts = db.get_user_email_accounts(user['id'])
+    if not user_accounts:
+        logger.warning(f"用户 {user['id']} ({user['username']}) 尝试收取邮件，但未配置邮箱账户")
+        return jsonify({
+            'success': False,
+            'message': '您还没有配置任何邮箱账户！',
+            'action': 'redirect',
+            'redirect_url': '/settings',
+            'prompt': '请先在设置页面添加您的邮箱账户，然后再进行邮件收取。'
+        }), 400
+    
+    # 检查是否有激活的账户
+    active_accounts = [acc for acc in user_accounts if acc.get('is_active', True)]
+    if not active_accounts:
+        logger.warning(f"用户 {user['id']} ({user['username']}) 的所有邮箱账户都已停用")
+        return jsonify({
+            'success': False,
+            'message': '您的所有邮箱账户都已停用！',
+            'action': 'redirect',
+            'redirect_url': '/settings',
+            'prompt': '请在设置页面启用至少一个邮箱账户，然后再进行邮件收取。'
+        }), 400
+    
+    logger.info(f"用户 {user['id']} ({user['username']}) 发起邮件收取，配置了 {len(active_accounts)} 个活跃邮箱账户")
     
     # 尝试使用Celery（如果可用）
     try:

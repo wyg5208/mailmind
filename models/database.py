@@ -1286,6 +1286,144 @@ class Database:
             logger.error(f"保存用户邮箱账户失败: {e}")
             return False
     
+    def delete_user_email_account(self, account_id: int, user_id: int) -> bool:
+        """删除用户的邮箱账户"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # 先检查账户是否属于该用户
+                cursor.execute('''
+                    SELECT email FROM email_accounts 
+                    WHERE id = ? AND user_id = ?
+                ''', (account_id, user_id))
+                
+                account = cursor.fetchone()
+                if not account:
+                    logger.warning(f"账户不存在或不属于用户 {user_id}")
+                    return False
+                
+                account_email = account['email']
+                
+                # 删除账户
+                cursor.execute('''
+                    DELETE FROM email_accounts 
+                    WHERE id = ? AND user_id = ?
+                ''', (account_id, user_id))
+                
+                conn.commit()
+                logger.info(f"成功删除用户 {user_id} 的邮箱账户: {account_email}")
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            logger.error(f"删除邮箱账户失败: {e}")
+            return False
+    
+    def transfer_email_account(self, account_id: int, from_user_id: int, to_username: str) -> tuple:
+        """转移邮箱账户到其他用户
+        
+        Returns:
+            (success: bool, message: str)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # 获取来源用户信息
+                cursor.execute('''
+                    SELECT username FROM users 
+                    WHERE id = ?
+                ''', (from_user_id,))
+                
+                from_user = cursor.fetchone()
+                if not from_user:
+                    return False, "来源用户不存在"
+                
+                from_username = from_user['username']
+                
+                # 先检查账户是否属于来源用户
+                cursor.execute('''
+                    SELECT email, password, provider FROM email_accounts 
+                    WHERE id = ? AND user_id = ?
+                ''', (account_id, from_user_id))
+                
+                account = cursor.fetchone()
+                if not account:
+                    return False, "账户不存在或不属于当前用户"
+                
+                account_email = account['email']
+                account_password = account['password']
+                account_provider = account['provider']
+                
+                # 查找目标用户
+                cursor.execute('''
+                    SELECT id, username FROM users 
+                    WHERE username = ?
+                ''', (to_username,))
+                
+                target_user = cursor.fetchone()
+                if not target_user:
+                    return False, f"目标用户 '{to_username}' 不存在"
+                
+                to_user_id = target_user['id']
+                
+                # 检查目标用户是否已经有相同的邮箱账户
+                cursor.execute('''
+                    SELECT id FROM email_accounts 
+                    WHERE user_id = ? AND email = ?
+                ''', (to_user_id, account_email))
+                
+                if cursor.fetchone():
+                    return False, f"目标用户已经配置了邮箱账户 {account_email}"
+                
+                # 删除来源用户的账户
+                cursor.execute('''
+                    DELETE FROM email_accounts 
+                    WHERE id = ? AND user_id = ?
+                ''', (account_id, from_user_id))
+                
+                # 为目标用户创建账户
+                cursor.execute('''
+                    INSERT INTO email_accounts 
+                    (user_id, email, password, provider, is_active, updated_at)
+                    VALUES (?, ?, ?, ?, 1, ?)
+                ''', (to_user_id, account_email, account_password, account_provider, datetime.now().isoformat()))
+                
+                conn.commit()
+                
+                # 记录操作日志
+                logger.info(f"成功将邮箱账户 {account_email} 从用户 {from_user_id} ({from_username}) 转移到用户 {to_user_id} ({to_username})")
+                
+                # 发送通知给来源用户（转出方）
+                try:
+                    self.save_notification(
+                        user_id=from_user_id,
+                        title="邮箱账户转移成功",
+                        message=f"您已成功将邮箱账户 {account_email} 转移给用户 @{to_username}。该账户的所有配置（包括密码、服务商设置等）已完整转移，您已失去对该账户的访问权限。",
+                        notification_type='info'
+                    )
+                    logger.info(f"已向转出方用户 {from_user_id} ({from_username}) 发送账户转移通知")
+                except Exception as notif_error:
+                    logger.warning(f"发送转出方通知失败，但转移操作已成功: {notif_error}")
+                
+                # 发送通知给目标用户（接收方）
+                try:
+                    self.save_notification(
+                        user_id=to_user_id,
+                        title="收到新的邮箱账户",
+                        message=f"用户 @{from_username} 已将邮箱账户 {account_email} 转移给您。该账户已添加到您的邮箱列表中，您可以立即开始使用。账户信息：服务商 {account_provider}，状态：已激活。",
+                        notification_type='success'
+                    )
+                    logger.info(f"已向接收方用户 {to_user_id} ({to_username}) 发送账户接收通知")
+                except Exception as notif_error:
+                    logger.warning(f"发送接收方通知失败，但转移操作已成功: {notif_error}")
+                
+                return True, f"成功转移邮箱账户到用户 {to_username}"
+                
+        except Exception as e:
+            logger.error(f"转移邮箱账户失败: {e}")
+            return False, f"转移失败: {str(e)}"
+    
     def update_user_password(self, user_id: int, new_password_hash: str) -> bool:
         """更新用户密码"""
         try:

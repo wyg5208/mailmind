@@ -218,8 +218,74 @@
                     'Content-Type': 'application/json',
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                // 检查HTTP状态码，处理特殊错误
+                if (response.status === 400) {
+                    return response.json().then(data => {
+                        loadingOverlay.classList.add('d-none');
+                        
+                        // 处理未配置账户或账户停用的情况
+                        if (data.action === 'redirect' && data.redirect_url) {
+                            // 显示友好的模态框提示
+                            const modalHtml = `
+                                <div class="modal fade" id="accountPromptModal" tabindex="-1">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header bg-warning text-dark">
+                                                <h5 class="modal-title">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>${data.message}
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="mb-3">${data.prompt}</p>
+                                                <div class="alert alert-info mb-0">
+                                                    <i class="fas fa-info-circle me-2"></i>
+                                                    添加邮箱账户后，您就可以开始接收和管理邮件了。
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                    <i class="fas fa-times me-1"></i>取消
+                                                </button>
+                                                <button type="button" class="btn btn-primary" onclick="window.location.href='${data.redirect_url}'">
+                                                    <i class="fas fa-cog me-1"></i>前往设置
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // 移除已存在的模态框
+                            const existingModal = document.getElementById('accountPromptModal');
+                            if (existingModal) {
+                                existingModal.remove();
+                            }
+                            
+                            // 插入新模态框
+                            document.body.insertAdjacentHTML('beforeend', modalHtml);
+                            
+                            // 显示模态框
+                            const modal = new bootstrap.Modal(document.getElementById('accountPromptModal'));
+                            modal.show();
+                            
+                            return { success: false, handled: true };
+                        }
+                        
+                        // 其他400错误，显示简单提示
+                        showAlert('warning', data.message);
+                        return { success: false, handled: true };
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
+                // 如果已经处理过，直接返回
+                if (data && data.handled) {
+                    return;
+                }
+                
                 // 隐藏加载覆盖层
                 loadingOverlay.classList.add('d-none');
                 
