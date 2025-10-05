@@ -440,8 +440,13 @@ class AIClient:
         
         return processed_emails
     
-    def generate_digest_summary(self, emails: List[Dict]) -> str:
-        """生成智能简报总结 - 拟人化贴心助理风格"""
+    def generate_digest_summary(self, emails: List[Dict], is_manual_fetch: bool = False) -> str:
+        """生成智能简报总结 - 拟人化贴心助理风格
+        
+        Args:
+            emails: 邮件列表
+            is_manual_fetch: 是否为手动实时收取（True=手动收取，False=定时收取）
+        """
         if not emails:
             return "主人，今天还没有收到新邮件哦~ 😊"
         
@@ -504,12 +509,31 @@ class AIClient:
                     'sender': email.get('sender', '')
                 })
         
+        # 根据是否手动收取，决定是否包含时间问候
+        greeting_instruction = ""
+        if is_manual_fetch:
+            # 手动收取：不需要时间问候，直接聚焦邮件内容
+            greeting_instruction = """
+1. **直接开场**（1句话）：直接说明本次收取到的邮件情况，例如：
+   - "本次为您收取了XX封邮件，其中..."
+   - "刚刚收到了XX封新邮件..."
+   - "这次共收取到XX封邮件..."
+   注意：不要使用"早上好/下午好/晚上好"等时间问候语"""
+        else:
+            # 定时收取：使用基于东八区的时间问候
+            greeting_instruction = """
+1. **时间问候**（1句话）：根据中国时间（东八区）的当前时间，使用适当的问候：
+   - 6:00-11:59：早上好！☀️
+   - 12:00-17:59：下午好！🌤️
+   - 18:00-次日5:59：晚上好！🌙
+   然后简要说明邮件情况"""
+        
         # 构建AI风格的智能摘要提示词
         prompt = f"""
-你是一位贴心、专业的邮件助理，请用温暖、友好、专业的口吻，为用户生成今日邮件的智能摘要。
+你是一位贴心、专业的邮件助理，请用生动活泼、温暖友好的口吻，为用户生成邮件的智能摘要。
 
 **邮件数据统计**：
-- 今日收到邮件总数：{total_count} 封
+- 收到邮件总数：{total_count} 封
 - 紧急重要邮件：{len(urgent_emails)} 封
 - 需要关注邮件：{len(important_emails)} 封
 - 会议邀请/通知：{len(meetings)} 个
@@ -534,27 +558,24 @@ class AIClient:
 
 请生成一段**不超过500字**的智能摘要，要求：
 
-1. **开场问候**（1句话）：根据当前时间（早上/下午/晚上），用温暖的问候开头
-2. **总体概况**（2-3句话）：今日邮件总数、重要程度分布
+{greeting_instruction}
+2. **总体概况**（2-3句话）：用生动的语言描述邮件总数和重要程度分布
 3. **重点提醒**（3-5句话）：
-   - 紧急邮件：如果有，列出最重要的1-2封，说明关键信息
-   - 会议日程：如果有，提醒时间和主题
-   - 任务待办：如果有，提醒需要完成的事项
-   - 截止日期：如果有，特别强调临近的deadline
-4. **财务提醒**（可选1-2句话）：如果有账单、付款等财务邮件，特别提醒
+   - 紧急邮件：如果有，用引人注目的方式突出最重要的1-2封，说明关键信息
+   - 会议日程：如果有，生动地提醒时间和主题
+   - 任务待办：如果有，活泼地提醒需要完成的事项
+   - 截止日期：如果有，特别强调临近的deadline，增加紧迫感
+4. **财务提醒**（可选1-2句话）：如果有账单、付款等财务邮件，用醒目的方式特别提醒
 5. **贴心建议**（1-2句话）：基于邮件内容，给出处理优先级建议
 
 **语言风格要求**：
 - 使用"您"而不是"你"，体现专业性
-- 语气温暖友好但不失专业
+- 语气温暖、生动、活泼，但不失专业
 - 用emoji增加亲和力（适度使用，不要过多）
 - 重要信息用加粗或特殊符号标注
-- 避免机械化表述，要自然流畅
-
-**示例开场**：
-- "早上好！☀️ 夜间为您收到了..."
-- "下午好！🌤️ 今天已经为您整理了..."
-- "晚上好！🌙 今天忙碌了一天，让我为您梳理..."
+- 避免机械化、呆板的表述，要自然流畅、充满活力
+- 可以使用比喻、拟人等修辞手法，让文字更生动
+- 适当增加一些趣味性的表达，但保持专业度
 
 请直接输出摘要内容，不要加任何前缀或解释。
 """
@@ -575,66 +596,79 @@ class AIClient:
             # AI失败，使用增强版备用摘要
             return self._generate_enhanced_fallback_summary(
                 total_count, urgent_emails, important_emails, meetings, 
-                tasks, deadlines, financial_items, categories
+                tasks, deadlines, financial_items, categories, is_manual_fetch
             )
             
         except Exception as e:
             logger.error(f"生成智能摘要失败: {e}")
             return self._generate_enhanced_fallback_summary(
                 total_count, urgent_emails, important_emails, meetings, 
-                tasks, deadlines, financial_items, categories
+                tasks, deadlines, financial_items, categories, is_manual_fetch
             )
     
     def _generate_enhanced_fallback_summary(self, total_count, urgent_emails, important_emails, 
-                                          meetings, tasks, deadlines, financial_items, categories):
-        """生成增强版备用摘要（当AI不可用时）"""
-        from datetime import datetime
+                                          meetings, tasks, deadlines, financial_items, categories, is_manual_fetch=False):
+        """生成增强版备用摘要（当AI不可用时）
         
-        hour = datetime.now().hour
-        if hour < 12:
-            greeting = "早上好！☀️"
-        elif hour < 18:
-            greeting = "下午好！🌤️"
+        Args:
+            is_manual_fetch: 是否为手动实时收取
+        """
+        # 使用东八区时间
+        from utils.timezone_helper import now_china_naive
+        
+        summary_parts = []
+        
+        # 根据收取方式决定开场
+        if is_manual_fetch:
+            # 手动收取：直接聚焦内容
+            summary_parts.append(f"本次为您收取了 **{total_count}** 封邮件")
         else:
-            greeting = "晚上好！🌙"
+            # 定时收取：使用基于东八区的时间问候
+            china_time = now_china_naive()
+            hour = china_time.hour
+            if 6 <= hour < 12:
+                greeting = "早上好！☀️"
+            elif 12 <= hour < 18:
+                greeting = "下午好！🌤️"
+            else:
+                greeting = "晚上好！🌙"
+            
+            summary_parts.append(greeting)
+            summary_parts.append(f"已为您整理了 **{total_count}** 封邮件")
         
-        summary_parts = [greeting]
-        
-        # 总体情况
-        summary_parts.append(f"今天已为您整理了 **{total_count}** 封邮件")
-        
-        # 紧急提醒
+        # 紧急提醒（更生动的表述）
         if urgent_emails:
-            summary_parts.append(f"⚠️ 有 **{len(urgent_emails)}** 封紧急邮件需要您优先处理")
+            summary_parts.append(f"⚠️ 发现 **{len(urgent_emails)}** 封紧急邮件，建议立即关注")
             if urgent_emails[0]:
-                summary_parts.append(f"最紧急：《{urgent_emails[0].get('subject', '')}》")
+                subject = urgent_emails[0].get('subject', '')
+                summary_parts.append(f"📌 最紧急的是：《{subject}》")
         
-        # 会议提醒
+        # 会议提醒（更活泼）
         if meetings:
-            summary_parts.append(f"📅 今天有 **{len(meetings)}** 个会议安排")
+            summary_parts.append(f"📅 今天排了 **{len(meetings)}** 场会议，记得提前准备")
         
-        # 任务提醒
+        # 任务提醒（增加活力）
         if tasks:
-            summary_parts.append(f"✅ 有 **{len(tasks)}** 项待办任务")
+            summary_parts.append(f"✅ 有 **{len(tasks)}** 项待办任务等着您，加油")
         
-        # 截止日期
+        # 截止日期（增加紧迫感）
         if deadlines:
-            summary_parts.append(f"⏰ **{len(deadlines)}** 个事项临近截止日期，请注意时间")
+            summary_parts.append(f"⏰ **{len(deadlines)}** 个事项临近截止，时间紧迫，请注意")
         
-        # 财务提醒
+        # 财务提醒（更醒目）
         if financial_items:
-            summary_parts.append(f"💰 收到 **{len(financial_items)}** 封财务相关邮件")
+            summary_parts.append(f"💰 收到 **{len(financial_items)}** 封财务相关邮件，请及时查看")
         
         # 其他分类
         if important_emails and not urgent_emails:
-            summary_parts.append(f"另有 **{len(important_emails)}** 封重要邮件需要关注")
+            summary_parts.append(f"另有 **{len(important_emails)}** 封重要邮件值得关注")
         
-        # 贴心建议
+        # 贴心建议（更生动）
         if urgent_emails or deadlines:
-            summary_parts.append("🎯 建议优先处理紧急邮件和临近deadline的事项")
+            summary_parts.append("🎯 建议按优先级处理：紧急邮件 > 临近deadline > 其他事项")
         elif meetings:
-            summary_parts.append("🎯 建议先查看会议安排，做好时间准备")
+            summary_parts.append("🎯 建议先确认会议时间，做好充分准备")
         else:
-            summary_parts.append("😊 今天的邮件都比较常规，可以从容处理")
+            summary_parts.append("😊 邮件都比较常规，可以从容应对")
         
         return "。".join(summary_parts) + "。"

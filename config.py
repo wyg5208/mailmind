@@ -117,7 +117,7 @@ class Config:
     # 调度配置
     CHECK_INTERVAL_MINUTES = int(os.getenv('CHECK_INTERVAL_MINUTES', '30'))
     MAX_EMAILS_PER_RUN = int(os.getenv('MAX_EMAILS_PER_RUN', '50'))
-    MAX_EMAILS_PER_ACCOUNT = int(os.getenv('MAX_EMAILS_PER_ACCOUNT', '20'))
+    MAX_EMAILS_PER_ACCOUNT = int(os.getenv('MAX_EMAILS_PER_ACCOUNT', '30'))
     
     # 数据库配置
     DATABASE_PATH = BASE_DIR / 'data' / 'emails.db'

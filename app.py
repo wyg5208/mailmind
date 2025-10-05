@@ -105,8 +105,13 @@ def process_emails():
     except Exception as e:
         logger.error(f"定时处理邮件时发生错误: {e}")
 
-def process_user_emails(user_id: int):
-    """处理指定用户的邮件"""
+def process_user_emails(user_id: int, is_manual_fetch: bool = False):
+    """处理指定用户的邮件
+    
+    Args:
+        user_id: 用户ID
+        is_manual_fetch: 是否为手动实时收取（True=手动收取，False=定时收取）
+    """
     global current_processing_users, processing_lock
     
     # 检查并发限制
@@ -122,7 +127,8 @@ def process_user_emails(user_id: int):
         current_processing_users.add(user_id)
     
     start_time = time.time()
-    logger.info(f"开始处理用户 {user_id} 的邮件...")
+    fetch_type = "手动" if is_manual_fetch else "定时"
+    logger.info(f"开始处理用户 {user_id} 的邮件（{fetch_type}收取）...")
     
     try:
         # 获取用户的邮箱账户
@@ -227,9 +233,10 @@ def process_user_emails(user_id: int):
             # 获取最近保存的邮件（包含数据库ID）
             recent_emails, _ = db.get_user_emails_filtered(user_id, page=1, per_page=saved_count)
             if recent_emails:
-                digest = digest_generator.create_digest(recent_emails)
+                # 传递is_manual_fetch参数，影响AI摘要的生成风格
+                digest = digest_generator.create_digest(recent_emails, is_manual_fetch=is_manual_fetch)
                 db.save_digest(digest, user_id=user_id)
-                logger.info(f"用户 {user_id} 简报生成完成")
+                logger.info(f"用户 {user_id} 简报生成完成（{fetch_type}收取）")
                 
                 # 保存成功通知
                 db.save_notification(
@@ -566,15 +573,16 @@ def trigger_processing():
         
         try:
             # 使用daemon线程处理（不阻塞主进程）
+            # 手动触发时传递is_manual_fetch=True
             thread = threading.Thread(
                 target=process_user_emails, 
-                args=(user['id'],),
+                args=(user['id'], True),  # True表示手动收取
                 daemon=True,
                 name=f"EmailProcessing-User{user['id']}"
             )
             thread.start()
             
-            logger.info(f"✅ 用户 {user['id']} 使用线程处理邮件")
+            logger.info(f"✅ 用户 {user['id']} 使用线程处理邮件（手动触发）")
             
             return jsonify({
                 'success': True,

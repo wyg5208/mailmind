@@ -216,8 +216,9 @@ def process_user_emails_async(self, user_id: int):
             recent_emails, _ = db.get_user_emails_filtered(user_id, page=1, per_page=saved_count)
             if recent_emails:
                 # 异步提交简报生成任务,不阻塞主流程
-                digest_task = generate_digest_async.delay(recent_emails, user_id)
-                logger.info(f"简报生成任务已提交: {digest_task.id}")
+                # Celery任务通常由手动触发，传递is_manual_fetch=True
+                digest_task = generate_digest_async.delay(recent_emails, user_id, True)
+                logger.info(f"简报生成任务已提交（手动收取）: {digest_task.id}")
         
         # 保存成功通知
         db.save_notification(
@@ -278,13 +279,14 @@ def generate_email_summary_async(self, email_data: dict):
 
 
 @celery_app.task(bind=True)
-def generate_digest_async(self, emails: list, user_id: int):
+def generate_digest_async(self, emails: list, user_id: int, is_manual_fetch: bool = True):
     """
     异步生成简报
     
     Args:
         emails: 邮件列表
         user_id: 用户ID
+        is_manual_fetch: 是否为手动收取（默认True，因为Celery通常由手动触发）
         
     Returns:
         dict: 生成结果 {'success': bool}
@@ -293,10 +295,11 @@ def generate_digest_async(self, emails: list, user_id: int):
         db = Database()
         digest_generator = DigestGenerator()
         
-        logger.info(f"[Celery] 任务 {self.request.id} 开始为用户 {user_id} 生成简报")
+        fetch_type = "手动" if is_manual_fetch else "定时"
+        logger.info(f"[Celery] 任务 {self.request.id} 开始为用户 {user_id} 生成简报（{fetch_type}收取）")
         
-        # 生成简报
-        digest = digest_generator.create_digest(emails)
+        # 生成简报，传递is_manual_fetch参数
+        digest = digest_generator.create_digest(emails, is_manual_fetch=is_manual_fetch)
         
         # 保存简报
         db.save_digest(digest, user_id=user_id)

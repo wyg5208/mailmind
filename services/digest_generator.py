@@ -222,8 +222,13 @@ class DigestGenerator:
             # 使用安全的备用标题
             return f"{date.strftime('%Y-%m-%d')} Email Digest - {email_count} emails"
     
-    def generate_digest_content(self, emails: List[Dict]) -> Dict:
-        """生成简报内容"""
+    def generate_digest_content(self, emails: List[Dict], is_manual_fetch: bool = False) -> Dict:
+        """生成简报内容
+        
+        Args:
+            emails: 邮件列表
+            is_manual_fetch: 是否为手动收取
+        """
         if not emails:
             now_utc = datetime.now(timezone.utc)
             return {
@@ -248,9 +253,9 @@ class DigestGenerator:
             formatted_categories[category] = formatted_emails
             all_formatted_emails.extend(formatted_emails)
         
-        # 生成AI总结
+        # 生成AI总结（传递is_manual_fetch参数）
         try:
-            ai_summary = self.ai_client.generate_digest_summary(emails)
+            ai_summary = self.ai_client.generate_digest_summary(emails, is_manual_fetch=is_manual_fetch)
         except Exception as e:
             logger.error(f"生成AI总结失败: {e}")
             ai_summary = f"Received {len(emails)} emails today"
@@ -271,10 +276,15 @@ class DigestGenerator:
         
         return digest_content
     
-    def create_digest(self, emails: List[Dict]) -> Dict:
-        """创建简报记录"""
+    def create_digest(self, emails: List[Dict], is_manual_fetch: bool = False) -> Dict:
+        """创建简报记录
+        
+        Args:
+            emails: 邮件列表
+            is_manual_fetch: 是否为手动收取
+        """
         try:
-            content = self.generate_digest_content(emails)
+            content = self.generate_digest_content(emails, is_manual_fetch=is_manual_fetch)
             
             digest = {
                 'date': datetime.now(timezone.utc),
