@@ -84,6 +84,9 @@ class AIAssistant {
                         <button class="ai-input-action-btn" id="ai-clear-context-btn" title="清空上下文（清除选中的邮件和会话记录）">
                             <i class="fas fa-broom"></i>
                         </button>
+                        <button class="ai-input-action-btn" id="ai-view-history-btn" title="查看聊天记录（新窗口）">
+                            <i class="fas fa-history"></i>
+                        </button>
                         <button class="ai-input-action-btn" id="ai-panel-copy" title="复制对话记录">
                             <i class="fas fa-copy"></i>
                         </button>
@@ -166,6 +169,12 @@ class AIAssistant {
         document.getElementById('ai-edit-commands-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             this.openCommandEditor();
+        });
+        
+        // 查看聊天记录按钮
+        document.getElementById('ai-view-history-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.viewChatHistory();
         });
         
         // 发送按钮
@@ -1976,6 +1985,712 @@ class AIAssistant {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    viewChatHistory() {
+        /**
+         * 在新标签页中打开聊天记录页面
+         * 支持查看所有对话、复制部分或全部聊天记录
+         */
+        try {
+            // 获取所有消息
+            const messages = this.messagesContainer.querySelectorAll('.ai-message');
+            
+            if (messages.length === 0) {
+                this.showToast('暂无聊天记录', 'warning');
+                return;
+            }
+            
+            // 构建聊天记录数据
+            const historyData = [];
+            
+            messages.forEach((msgEl, index) => {
+                const role = msgEl.classList.contains('user') ? 'user' : 'assistant';
+                const time = msgEl.querySelector('.ai-message-time')?.textContent || '';
+                const textEl = msgEl.querySelector('.ai-message-text');
+                
+                if (textEl) {
+                    let content = textEl.textContent.trim();
+                    
+                    // 收集邮件信息
+                    const emails = [];
+                    const emailList = msgEl.querySelector('.ai-email-list');
+                    if (emailList) {
+                        const emailCards = emailList.querySelectorAll('.ai-email-card');
+                        emailCards.forEach((card) => {
+                            const subject = card.querySelector('.ai-email-card-subject')?.textContent || '';
+                            const sender = card.querySelector('.ai-email-card-sender')?.textContent || '';
+                            const date = card.querySelector('.ai-email-card-date')?.textContent || '';
+                            emails.push({ subject, sender, date });
+                        });
+                    }
+                    
+                    historyData.push({
+                        index: index + 1,
+                        role: role,
+                        time: time,
+                        content: content,
+                        emails: emails
+                    });
+                }
+            });
+            
+            // 生成HTML页面
+            const htmlContent = this.generateHistoryHTML(historyData);
+            
+            // 打开新窗口
+            const newWindow = window.open('', '_blank', 'width=1200,height=800');
+            if (newWindow) {
+                newWindow.document.write(htmlContent);
+                newWindow.document.close();
+                this.showToast('✅ 已在新标签页打开聊天记录', 'success');
+            } else {
+                this.showToast('❌ 请允许浏览器弹出窗口', 'error');
+            }
+            
+        } catch (error) {
+            console.error('打开聊天记录失败:', error);
+            this.showToast('❌ 打开聊天记录失败', 'error');
+        }
+    }
+    
+    generateHistoryHTML(historyData) {
+        /**
+         * 生成聊天记录HTML页面
+         */
+        const totalMessages = historyData.length;
+        const userMessages = historyData.filter(m => m.role === 'user').length;
+        const assistantMessages = historyData.filter(m => m.role === 'assistant').length;
+        
+        // 生成消息HTML
+        const messagesHTML = historyData.map(msg => {
+            const roleLabel = msg.role === 'user' ? '用户' : 'AI助手';
+            const roleClass = msg.role === 'user' ? 'user-msg' : 'assistant-msg';
+            const roleIcon = msg.role === 'user' ? 'fa-user' : 'fa-robot';
+            
+            let emailsHTML = '';
+            if (msg.emails && msg.emails.length > 0) {
+                emailsHTML = `
+                    <div class="emails-section">
+                        <div class="emails-header">
+                            <i class="fas fa-envelope"></i>
+                            相关邮件 (${msg.emails.length}封)
+                        </div>
+                        <div class="emails-list">
+                            ${msg.emails.map((email, idx) => `
+                                <div class="email-item">
+                                    <span class="email-index">${idx + 1}</span>
+                                    <div class="email-info">
+                                        <div class="email-subject">${this.escapeHtml(email.subject)}</div>
+                                        <div class="email-meta">
+                                            <span><i class="fas fa-user"></i> ${this.escapeHtml(email.sender)}</span>
+                                            <span><i class="fas fa-calendar"></i> ${this.escapeHtml(email.date)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="message-item ${roleClass}" data-index="${msg.index}">
+                    <div class="message-header">
+                        <div class="message-role">
+                            <i class="fas ${roleIcon}"></i>
+                            ${roleLabel}
+                        </div>
+                        <div class="message-time">${msg.time}</div>
+                        <button class="copy-message-btn" onclick="copyMessage(${msg.index})" title="复制此消息">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="message-content">${this.escapeHtml(msg.content)}</div>
+                    ${emailsHTML}
+                </div>
+            `;
+        }).join('');
+        
+        return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI邮件助手 - 聊天记录</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .header h1 i {
+            font-size: 32px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .stat-item i {
+            font-size: 16px;
+        }
+        
+        .toolbar {
+            padding: 20px 30px;
+            background: #F7FAFC;
+            border-bottom: 2px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .toolbar-title {
+            font-size: 14px;
+            color: #4A5568;
+            font-weight: 500;
+        }
+        
+        .toolbar-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .toolbar-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toolbar-btn.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .toolbar-btn.primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+        }
+        
+        .toolbar-btn.secondary {
+            background: white;
+            color: #4A5568;
+            border: 1px solid #E2E8F0;
+        }
+        
+        .toolbar-btn.secondary:hover {
+            background: #F7FAFC;
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .messages-container {
+            padding: 30px;
+            max-height: calc(100vh - 400px);
+            overflow-y: auto;
+        }
+        
+        .message-item {
+            margin-bottom: 24px;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #E2E8F0;
+            background: white;
+            transition: all 0.2s;
+        }
+        
+        .message-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 16px rgba(102,126,234,0.1);
+        }
+        
+        .message-item.user-msg {
+            border-left: 4px solid #48BB78;
+        }
+        
+        .message-item.assistant-msg {
+            border-left: 4px solid #667eea;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .message-role {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #2D3748;
+        }
+        
+        .user-msg .message-role { color: #38A169; }
+        .assistant-msg .message-role { color: #667eea; }
+        
+        .message-role i {
+            font-size: 16px;
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: #A0AEC0;
+        }
+        
+        .copy-message-btn {
+            padding: 6px 12px;
+            border: 1px solid #E2E8F0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+            color: #718096;
+        }
+        
+        .copy-message-btn:hover {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+        
+        .message-content {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #4A5568;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .emails-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #E2E8F0;
+        }
+        
+        .emails-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: #4A5568;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .emails-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .email-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: #F7FAFC;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+        }
+        
+        .email-index {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        
+        .email-info {
+            flex: 1;
+        }
+        
+        .email-subject {
+            font-size: 13px;
+            font-weight: 500;
+            color: #2D3748;
+            margin-bottom: 4px;
+        }
+        
+        .email-meta {
+            font-size: 11px;
+            color: #718096;
+            display: flex;
+            gap: 16px;
+        }
+        
+        .email-meta i {
+            margin-right: 4px;
+            color: #A0AEC0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #A0AEC0;
+        }
+        
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #48BB78;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+            display: none;
+        }
+        
+        .toast.show {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+        }
+        
+        /* 滚动条样式 */
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .messages-container::-webkit-scrollbar-track {
+            background: #F7FAFC;
+        }
+        
+        .messages-container::-webkit-scrollbar-thumb {
+            background: #CBD5E0;
+            border-radius: 4px;
+        }
+        
+        .messages-container::-webkit-scrollbar-thumb:hover {
+            background: #A0AEC0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <i class="fas fa-comments"></i>
+                AI邮件助手 - 聊天记录
+            </h1>
+            <div class="stats">
+                <div class="stat-item">
+                    <i class="fas fa-message"></i>
+                    <span>总消息: ${totalMessages} 条</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-user"></i>
+                    <span>用户消息: ${userMessages} 条</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-robot"></i>
+                    <span>AI回复: ${assistantMessages} 条</span>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-clock"></i>
+                    <span>${new Date().toLocaleString('zh-CN')}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="toolbar">
+            <div class="toolbar-title">
+                <i class="fas fa-info-circle"></i>
+                提示：点击每条消息右侧的复制按钮可复制单条消息
+            </div>
+            <div class="toolbar-actions">
+                <button class="toolbar-btn secondary" onclick="selectAll()">
+                    <i class="fas fa-check-double"></i>
+                    全选
+                </button>
+                <button class="toolbar-btn secondary" onclick="exportToTxt()">
+                    <i class="fas fa-download"></i>
+                    导出为TXT
+                </button>
+                <button class="toolbar-btn primary" onclick="copyAllMessages()">
+                    <i class="fas fa-copy"></i>
+                    复制全部记录
+                </button>
+            </div>
+        </div>
+        
+        <div class="messages-container" id="messagesContainer">
+            ${messagesHTML}
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        // 复制单条消息
+        function copyMessage(index) {
+            const messageEl = document.querySelector(\`.message-item[data-index="\${index}"]\`);
+            if (!messageEl) return;
+            
+            const role = messageEl.querySelector('.message-role').textContent.trim();
+            const time = messageEl.querySelector('.message-time').textContent.trim();
+            const content = messageEl.querySelector('.message-content').textContent.trim();
+            
+            let text = \`[\${role}] \${time}\\n\${content}\\n\`;
+            
+            // 如果有邮件列表
+            const emailItems = messageEl.querySelectorAll('.email-item');
+            if (emailItems.length > 0) {
+                text += \`\\n相关邮件 (\${emailItems.length}封):\\n\`;
+                emailItems.forEach((item, idx) => {
+                    const subject = item.querySelector('.email-subject').textContent;
+                    const sender = item.querySelector('.email-meta span:first-child').textContent;
+                    text += \`  \${idx + 1}. \${subject} - \${sender}\\n\`;
+                });
+            }
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('✅ 已复制该消息');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showToast('❌ 复制失败');
+            });
+        }
+        
+        // 复制全部消息
+        function copyAllMessages() {
+            let text = '=== AI邮件助手聊天记录 ===\\n\\n';
+            text += \`导出时间: \${new Date().toLocaleString('zh-CN')}\\n\`;
+            text += \`总消息数: ${totalMessages} 条\\n\\n\`;
+            text += '─'.repeat(50) + '\\n\\n';
+            
+            const messages = document.querySelectorAll('.message-item');
+            messages.forEach((msgEl, index) => {
+                const role = msgEl.querySelector('.message-role').textContent.trim();
+                const time = msgEl.querySelector('.message-time').textContent.trim();
+                const content = msgEl.querySelector('.message-content').textContent.trim();
+                
+                text += \`[\${role}] \${time}\\n\`;
+                text += \`\${content}\\n\`;
+                
+                // 如果有邮件列表
+                const emailItems = msgEl.querySelectorAll('.email-item');
+                if (emailItems.length > 0) {
+                    text += \`\\n  相关邮件 (\${emailItems.length}封):\\n\`;
+                    emailItems.forEach((item, idx) => {
+                        const subject = item.querySelector('.email-subject').textContent;
+                        const sender = item.querySelector('.email-meta span:first-child').textContent;
+                        text += \`  \${idx + 1}. \${subject} - \${sender}\\n\`;
+                    });
+                }
+                
+                text += '\\n' + '─'.repeat(50) + '\\n\\n';
+            });
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(\`✅ 已复制全部 ${totalMessages} 条消息\`);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showToast('❌ 复制失败');
+            });
+        }
+        
+        // 全选功能
+        function selectAll() {
+            const messages = document.querySelectorAll('.message-item');
+            messages.forEach(msg => {
+                msg.style.background = '#EBF4FF';
+            });
+            
+            setTimeout(() => {
+                messages.forEach(msg => {
+                    msg.style.background = 'white';
+                });
+            }, 1000);
+            
+            showToast(\`已选中全部 ${totalMessages} 条消息\`);
+        }
+        
+        // 导出为TXT文件
+        function exportToTxt() {
+            // 生成文件内容
+            let content = '═══════════════════════════════════════════════════════════════\n';
+            content += '                  AI邮件助手聊天记录\n';
+            content += '═══════════════════════════════════════════════════════════════\n\n';
+            
+            // 导出信息
+            const now = new Date();
+            content += \`导出时间: \${now.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            })}\n\`;
+            content += \`总消息数: ${totalMessages} 条\n\`;
+            content += \`用户消息: ${userMessages} 条\n\`;
+            content += \`AI回复: ${assistantMessages} 条\n\n\`;
+            content += '═══════════════════════════════════════════════════════════════\n\n';
+            
+            // 遍历所有消息
+            const messages = document.querySelectorAll('.message-item');
+            messages.forEach((msgEl, index) => {
+                const role = msgEl.querySelector('.message-role').textContent.trim();
+                const time = msgEl.querySelector('.message-time').textContent.trim();
+                const msgContent = msgEl.querySelector('.message-content').textContent.trim();
+                
+                // 消息头部
+                content += \`[\${role}] \${time}\n\`;
+                content += '───────────────────────────────────────────────────────────────\n';
+                
+                // 消息内容
+                content += \`\${msgContent}\n\`;
+                
+                // 如果有邮件列表
+                const emailItems = msgEl.querySelectorAll('.email-item');
+                if (emailItems.length > 0) {
+                    content += \`\n📧 相关邮件 (\${emailItems.length}封):\n\`;
+                    emailItems.forEach((item, idx) => {
+                        const subject = item.querySelector('.email-subject').textContent;
+                        const sender = item.querySelector('.email-meta span:first-child').textContent;
+                        const date = item.querySelector('.email-meta span:nth-child(2)').textContent;
+                        content += \`  \${idx + 1}. \${subject}\n\`;
+                        content += \`     发件人: \${sender}\n\`;
+                        content += \`     时间: \${date}\n\`;
+                    });
+                }
+                
+                content += '\n';
+                
+                // 如果不是最后一条消息，添加分隔线
+                if (index < messages.length - 1) {
+                    content += '═══════════════════════════════════════════════════════════════\n\n';
+                }
+            });
+            
+            // 文件尾部
+            content += '═══════════════════════════════════════════════════════════════\n';
+            content += '                        记录结束\n';
+            content += '═══════════════════════════════════════════════════════════════\n';
+            
+            // 生成文件名（带时间戳）
+            const timestamp = now.toISOString()
+                .replace(/:/g, '-')
+                .replace(/\\.\\d{3}Z/, '')
+                .replace('T', '_');
+            const filename = \`AI邮件助手聊天记录_\${timestamp}.txt\`;
+            
+            // 创建Blob并下载
+            try {
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast(\`✅ 已导出: \${filename}\`);
+            } catch (error) {
+                console.error('导出失败:', error);
+                showToast('❌ 导出失败，请重试');
+            }
+        }
+        
+        // 显示提示
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.style.animation = '';
+                }, 300);
+            }, 2000);
+        }
+    </script>
+</body>
+</html>`;
     }
 }
 
