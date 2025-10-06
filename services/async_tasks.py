@@ -321,3 +321,242 @@ def generate_digest_async(self, emails: list, user_id: int, is_manual_fetch: boo
         return {'success': False, 'error': str(e)}
 
 
+@celery_app.task(bind=True, max_retries=3)
+def import_all_emails_async(self, user_id: int, days_back: int = 180):
+    """
+    异步批量导入历史邮件（不做AI分析，仅原始导入）
+    
+    Args:
+        user_id: 用户ID
+        days_back: 导入多少天内的邮件（默认180天）
+        
+    Returns:
+        dict: 导入结果 {'success': bool, 'imported': int, ...}
+    """
+    try:
+        db = Database()
+        email_manager = EmailManager()
+        
+        logger.info(f"[Celery] 任务 {self.request.id} 开始为用户 {user_id} 批量导入 {days_back} 天内的邮件")
+        
+        # 更新任务状态: 初始化阶段
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'current': 0,
+                'total': 100,
+                'imported': 0,
+                'total_found': 0,
+                'current_account': '',
+                'status': '正在准备导入...'
+            }
+        )
+        
+        # 获取用户邮箱账户
+        user_accounts = db.get_user_email_accounts(user_id)
+        if not user_accounts:
+            logger.warning(f"用户 {user_id} 没有配置邮箱账户")
+            return {'success': False, 'message': '没有配置邮箱账户'}
+        
+        # 获取活跃账户
+        active_accounts = [acc for acc in user_accounts if acc['is_active']]
+        total_accounts = len(active_accounts)
+        
+        if total_accounts == 0:
+            logger.warning(f"用户 {user_id} 没有活跃的邮箱账户")
+            return {'success': False, 'message': '没有活跃的邮箱账户'}
+        
+        logger.info(f"用户 {user_id} 有 {total_accounts} 个活跃邮箱账户")
+        
+        all_imported_emails = []
+        total_found = 0
+        
+        # 逐个处理邮箱账户
+        for account_idx, account in enumerate(active_accounts):
+            try:
+                account_email = account['email']
+                
+                # 更新进度
+                progress = int((account_idx / total_accounts) * 90)  # 0-90% 用于导入
+                self.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': progress,
+                        'total': 100,
+                        'imported': len(all_imported_emails),
+                        'total_found': total_found,
+                        'current_account': account_email,
+                        'status': f'正在导入邮箱 [{account_idx + 1}/{total_accounts}]: {account_email}'
+                    }
+                )
+                
+                # 获取账户密码
+                with db.get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT password FROM email_accounts WHERE id = ?', (account['id'],))
+                    row = cursor.fetchone()
+                    password = row['password'] if row else ''
+                
+                account_info = {
+                    'email': account_email,
+                    'password': password,
+                    'provider': account['provider']
+                }
+                
+                logger.info(f"正在从 {account_email} 导入 {days_back} 天内的邮件...")
+                
+                # 获取邮件（不限制数量，导入所有）
+                new_emails = email_manager.fetch_new_emails(
+                    account_info, 
+                    since_days=days_back, 
+                    user_id=user_id,
+                    max_emails=None  # None表示不限制
+                )
+                
+                if new_emails:
+                    total_found += len(new_emails)
+                    # 为每封邮件添加用户ID
+                    for email in new_emails:
+                        email['user_id'] = user_id
+                        # 不生成AI摘要，设置为None或空字符串
+                        email['ai_summary'] = ''
+                        email['processed'] = False  # 标记为未AI处理
+                    
+                    all_imported_emails.extend(new_emails)
+                    logger.info(f"从 {account_email} 发现 {len(new_emails)} 封邮件")
+                else:
+                    logger.info(f"从 {account_email} 没有找到新邮件")
+                
+            except Exception as e:
+                logger.error(f"导入邮箱 {account['email']} 失败: {e}")
+                continue
+        
+        # 更新进度: 去重阶段
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'current': 92,
+                'total': 100,
+                'imported': len(all_imported_emails),
+                'total_found': total_found,
+                'current_account': '',
+                'status': f'正在去重处理... 发现 {total_found} 封邮件'
+            }
+        )
+        
+        if not all_imported_emails:
+            logger.info(f"用户 {user_id} 没有找到新邮件")
+            db.save_notification(
+                user_id=user_id,
+                title="批量导入完成",
+                message=f"检查了 {total_accounts} 个邮箱，没有找到新邮件。",
+                notification_type='info'
+            )
+            return {'success': True, 'imported': 0, 'total_found': 0, 'message': '没有新邮件'}
+        
+        # 去重处理
+        logger.info(f"开始去重... 当前有 {len(all_imported_emails)} 封邮件")
+        deduplicated_emails = db.deduplicate_emails(all_imported_emails, user_id=user_id)
+        logger.info(f"去重后剩余 {len(deduplicated_emails)} 封邮件")
+        
+        # 更新进度: 保存阶段
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'current': 95,
+                'total': 100,
+                'imported': 0,
+                'total_found': total_found,
+                'current_account': '',
+                'status': f'正在保存邮件... 去重后 {len(deduplicated_emails)} 封'
+            }
+        )
+        
+        if not deduplicated_emails:
+            logger.info(f"用户 {user_id} 去重后没有新邮件")
+            db.save_notification(
+                user_id=user_id,
+                title="批量导入完成",
+                message=f"发现 {total_found} 封邮件，但全部为重复邮件，已自动过滤。",
+                notification_type='info'
+            )
+            return {
+                'success': True, 
+                'imported': 0, 
+                'total_found': total_found,
+                'duplicates_removed': total_found
+            }
+        
+        # 批量保存邮件
+        saved_count = 0
+        for idx, email_data in enumerate(deduplicated_emails):
+            try:
+                db.save_email(email_data)
+                saved_count += 1
+                
+                # 每10封更新一次进度
+                if saved_count % 10 == 0:
+                    progress = 95 + int((saved_count / len(deduplicated_emails)) * 4)  # 95-99%
+                    self.update_state(
+                        state='PROGRESS',
+                        meta={
+                            'current': progress,
+                            'total': 100,
+                            'imported': saved_count,
+                            'total_found': total_found,
+                            'current_account': '',
+                            'status': f'正在保存... {saved_count}/{len(deduplicated_emails)}'
+                        }
+                    )
+            except Exception as e:
+                logger.error(f"保存邮件失败: {e}")
+                continue
+        
+        logger.info(f"用户 {user_id} 成功导入 {saved_count} 封邮件")
+        
+        # 更新邮箱账户统计
+        for account in active_accounts:
+            try:
+                account_email_count = db.get_account_email_count(user_id, account['email'])
+                db.update_email_account_stats(user_id, account['email'], account_email_count)
+            except Exception as e:
+                logger.error(f"更新邮箱统计失败: {e}")
+        
+        # 保存成功通知
+        db.save_notification(
+            user_id=user_id,
+            title="批量导入完成",
+            message=f"成功导入 {saved_count} 封邮件（{days_back}天内）。发现 {total_found} 封，去重后导入 {saved_count} 封。",
+            notification_type='success'
+        )
+        
+        logger.info(f"[Celery] 任务 {self.request.id} 完成，用户 {user_id} 导入了 {saved_count} 封邮件")
+        
+        return {
+            'success': True,
+            'imported': saved_count,
+            'total_found': total_found,
+            'deduplicated': len(deduplicated_emails),
+            'duplicates_removed': total_found - len(deduplicated_emails),
+            'accounts_processed': total_accounts
+        }
+        
+    except Exception as e:
+        logger.error(f"[Celery] 批量导入用户 {user_id} 邮件失败: {e}", exc_info=True)
+        
+        # 保存错误通知
+        try:
+            db = Database()
+            db.save_notification(
+                user_id=user_id,
+                title="批量导入失败",
+                message=f"导入邮件时出现错误: {str(e)}",
+                notification_type='error'
+            )
+        except:
+            pass
+        
+        # Celery自动重试机制 (最多3次)
+        raise self.retry(exc=e, countdown=60)  # 60秒后重试
+
+

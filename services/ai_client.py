@@ -521,12 +521,21 @@ class AIClient:
    注意：不要使用"早上好/下午好/晚上好"等时间问候语"""
         else:
             # 定时收取：使用基于东八区的时间问候
-            greeting_instruction = """
-1. **时间问候**（1句话）：根据中国时间（东八区）的当前时间，使用适当的问候：
-   - 6:00-11:59：早上好！☀️
-   - 12:00-17:59：下午好！🌤️
-   - 18:00-次日5:59：晚上好！🌙
-   然后简要说明邮件情况"""
+            from utils.timezone_helper import now_china_naive
+            china_time = now_china_naive()
+            current_hour = china_time.hour
+            current_time_str = china_time.strftime('%H:%M')
+            
+            # 确定问候语
+            if 6 <= current_hour < 12:
+                expected_greeting = "早上好！☀️"
+            elif 12 <= current_hour < 18:
+                expected_greeting = "下午好！🌤️"
+            else:
+                expected_greeting = "晚上好！🌙"
+            
+            greeting_instruction = f"""
+1. **时间问候**（1句话）：当前中国时间是 {current_time_str}（{current_hour}点），请使用"{expected_greeting}"作为开场问候，然后简要说明邮件情况"""
         
         # 构建AI风格的智能摘要提示词
         prompt = f"""
@@ -672,3 +681,333 @@ class AIClient:
             summary_parts.append("😊 邮件都比较常规，可以从容应对")
         
         return "。".join(summary_parts) + "。"
+    
+    def generate(self, prompt: str, temperature: float = 0.7, max_tokens: int = 2000) -> Optional[str]:
+        """
+        通用的AI文本生成方法
+        
+        参数:
+        - prompt: 提示词
+        - temperature: 温度参数，控制生成的随机性（0-1）
+        - max_tokens: 最大生成token数
+        
+        返回:
+        - 生成的文本，失败返回None
+        """
+        if self.provider == 'glm':
+            return self._generate_with_glm(prompt, temperature, max_tokens)
+        elif self.provider == 'openai':
+            return self._generate_with_openai(prompt, temperature, max_tokens)
+        else:
+            logger.error(f"不支持的AI提供商: {self.provider}")
+            return None
+    
+    def _generate_with_glm(self, prompt: str, temperature: float, max_tokens: int) -> Optional[str]:
+        """使用GLM生成文本"""
+        if not self.api_key:
+            logger.error("GLM API key 未配置")
+            return None
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    content = result['choices'][0]['message']['content'].strip()
+                    return content
+                else:
+                    logger.error("GLM API 返回格式错误")
+                    return None
+            else:
+                error_text = response.text
+                logger.error(f"GLM API 调用失败: {response.status_code} - {error_text}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error("GLM API 调用超时")
+            return None
+        except Exception as e:
+            logger.error(f"GLM API 调用异常: {e}")
+            return None
+    
+    def _generate_with_openai(self, prompt: str, temperature: float, max_tokens: int) -> Optional[str]:
+        """使用OpenAI生成文本"""
+        if not self.api_key:
+            logger.error("OpenAI API key 未配置")
+            return None
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    content = result['choices'][0]['message']['content'].strip()
+                    return content
+                else:
+                    logger.error("OpenAI API 返回格式错误")
+                    return None
+            else:
+                error_text = response.text
+                logger.error(f"OpenAI API 调用失败: {response.status_code} - {error_text}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            logger.error("OpenAI API 调用超时")
+            return None
+        except Exception as e:
+            logger.error(f"OpenAI API 调用异常: {e}")
+            return None
+    
+    # ========================================================================
+    # Function Call 支持
+    # ========================================================================
+    
+    def chat_with_tools(self, messages: List[Dict], tools: List[Dict] = None, 
+                       temperature: float = 0.7, max_tokens: int = 2000) -> Dict:
+        """
+        使用Function Call能力进行对话
+        
+        Args:
+            messages: 对话消息列表，格式为 [{"role": "user", "content": "..."}]
+            tools: 工具定义列表（Function Call格式）
+            temperature: 温度参数
+            max_tokens: 最大token数
+        
+        Returns:
+            {
+                'content': '回复内容',
+                'tool_calls': [工具调用列表],
+                'finish_reason': '结束原因',
+                'usage': {使用统计}
+            }
+        """
+        if self.provider == 'glm':
+            return self._chat_with_tools_glm(messages, tools, temperature, max_tokens)
+        elif self.provider == 'openai':
+            return self._chat_with_tools_openai(messages, tools, temperature, max_tokens)
+        else:
+            logger.error(f"不支持的AI提供商: {self.provider}")
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': f'不支持的AI提供商: {self.provider}'
+            }
+    
+    def _chat_with_tools_glm(self, messages: List[Dict], tools: List[Dict], 
+                            temperature: float, max_tokens: int) -> Dict:
+        """使用GLM-4 Function Call"""
+        if not self.api_key:
+            logger.error("GLM API key 未配置")
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': 'GLM API key 未配置'
+            }
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False
+        }
+        
+        # 添加工具定义
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"  # 让模型自动决定是否调用工具
+        
+        logger.info(f"GLM Function Call 请求: {json.dumps(payload, ensure_ascii=False, indent=2)}")
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60  # Function Call可能需要更长时间
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"GLM Function Call 响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+                
+                if 'choices' in result and len(result['choices']) > 0:
+                    choice = result['choices'][0]
+                    message = choice['message']
+                    
+                    return {
+                        'content': message.get('content', ''),
+                        'tool_calls': message.get('tool_calls', []),
+                        'finish_reason': choice.get('finish_reason', 'stop'),
+                        'usage': result.get('usage', {})
+                    }
+                else:
+                    logger.error("GLM API 返回格式错误")
+                    return {
+                        'content': '',
+                        'tool_calls': [],
+                        'finish_reason': 'error',
+                        'error': 'GLM API 返回格式错误'
+                    }
+            else:
+                error_text = response.text
+                logger.error(f"GLM Function Call 失败: {response.status_code} - {error_text}")
+                return {
+                    'content': '',
+                    'tool_calls': [],
+                    'finish_reason': 'error',
+                    'error': f'GLM API 调用失败: {response.status_code}'
+                }
+                
+        except requests.exceptions.Timeout:
+            logger.error("GLM Function Call 超时")
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': 'GLM API 调用超时'
+            }
+        except Exception as e:
+            logger.error(f"GLM Function Call 异常: {e}", exc_info=True)
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': f'GLM API 调用异常: {str(e)}'
+            }
+    
+    def _chat_with_tools_openai(self, messages: List[Dict], tools: List[Dict], 
+                               temperature: float, max_tokens: int) -> Dict:
+        """使用OpenAI Function Call"""
+        if not self.api_key:
+            logger.error("OpenAI API key 未配置")
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': 'OpenAI API key 未配置'
+            }
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        # 添加工具定义
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+        
+        logger.info(f"OpenAI Function Call 请求: {json.dumps(payload, ensure_ascii=False, indent=2)}")
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"OpenAI Function Call 响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+                
+                if 'choices' in result and len(result['choices']) > 0:
+                    choice = result['choices'][0]
+                    message = choice['message']
+                    
+                    return {
+                        'content': message.get('content', ''),
+                        'tool_calls': message.get('tool_calls', []),
+                        'finish_reason': choice.get('finish_reason', 'stop'),
+                        'usage': result.get('usage', {})
+                    }
+                else:
+                    logger.error("OpenAI API 返回格式错误")
+                    return {
+                        'content': '',
+                        'tool_calls': [],
+                        'finish_reason': 'error',
+                        'error': 'OpenAI API 返回格式错误'
+                    }
+            else:
+                error_text = response.text
+                logger.error(f"OpenAI Function Call 失败: {response.status_code} - {error_text}")
+                return {
+                    'content': '',
+                    'tool_calls': [],
+                    'finish_reason': 'error',
+                    'error': f'OpenAI API 调用失败: {response.status_code}'
+                }
+                
+        except requests.exceptions.Timeout:
+            logger.error("OpenAI Function Call 超时")
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': 'OpenAI API 调用超时'
+            }
+        except Exception as e:
+            logger.error(f"OpenAI Function Call 异常: {e}", exc_info=True)
+            return {
+                'content': '',
+                'tool_calls': [],
+                'finish_reason': 'error',
+                'error': f'OpenAI API 调用异常: {str(e)}'
+            }

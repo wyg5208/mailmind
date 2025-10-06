@@ -688,10 +688,14 @@ class EmailManager:
             logger.info(f"邮箱 {email_address} 找到 {len(email_ids)} 封邮件")
             
             # 限制处理数量（优先使用用户配置，否则使用系统默认值）
-            max_emails_limit = max_emails if max_emails is not None else Config.MAX_EMAILS_PER_ACCOUNT
-            if len(email_ids) > max_emails_limit:
-                email_ids = email_ids[-max_emails_limit:]
-                logger.info(f"限制处理数量为 {max_emails_limit} 封（用户配置: {max_emails is not None}）")
+            # 如果max_emails为None，表示不限制数量（批量导入场景）
+            if max_emails is None:
+                logger.info(f"批量导入模式：不限制邮件数量，将导入所有 {len(email_ids)} 封邮件")
+            else:
+                max_emails_limit = max_emails
+                if len(email_ids) > max_emails_limit:
+                    email_ids = email_ids[-max_emails_limit:]
+                    logger.info(f"限制处理数量为 {max_emails_limit} 封（用户配置）")
             
             # 获取已处理的邮件ID
             processed_ids = self.db.get_processed_email_ids(email_address)

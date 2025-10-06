@@ -162,7 +162,13 @@
                                                 </div>
                                             </div>
                                             <div class="email-meta-compact d-flex align-items-center flex-shrink-0">
-                                                <small class="text-muted me-2 d-none d-md-inline">{{ email.time }}</small>
+                                                <small class="text-muted me-2 d-none d-md-inline">
+                                                    {% if email.date %}
+                                                        {{ email.date[:10] }} {{ email.time if email.time else email.date[11:16] }}
+                                                    {% elif email.time %}
+                                                        {{ email.time }}
+                                                    {% endif %}
+                                                </small>
                                                 {% if email.provider %}
                                                 <span class="badge bg-light text-dark me-2 d-none d-sm-inline" style="font-size: 0.6rem;">{{ email.provider.upper() }}</span>
                                                 {% endif %}
@@ -242,7 +248,13 @@
                                             </div>
                                         </div>
                                         <div class="email-meta-compact d-flex align-items-center flex-shrink-0">
-                                            <small class="text-muted me-2 d-none d-md-inline">{{ email.date[11:16] if email.date|length > 16 else email.date }}</small>
+                                            <small class="text-muted me-2 d-none d-md-inline">
+                                                {% if email.date and email.date|length > 16 %}
+                                                    {{ email.date[:10] }} {{ email.date[11:16] }}
+                                                {% elif email.date %}
+                                                    {{ email.date }}
+                                                {% endif %}
+                                            </small>
                                             <button class="btn btn-sm btn-outline-info translate-title-btn" data-email-id="{{ email.id|default(0) }}" data-translated="false" title="翻译标题" onclick="event.stopPropagation(); translateEmailTitle(this.dataset.emailId, this)" style="font-size: 0.6rem; padding: 0.1rem 0.3rem;">
                                                 <i class="fas fa-language"></i>
                                             </button>

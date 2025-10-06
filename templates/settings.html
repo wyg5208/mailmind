@@ -126,9 +126,23 @@
                             <i class="fas fa-list text-primary me-2"></i>已配置账户
                             <span class="badge bg-secondary ms-2">{{ accounts|length }}</span>
                         </h5>
-                        <button class="btn btn-outline-info btn-sm" onclick="refreshAccountStats()">
-                            <i class="fas fa-sync me-1"></i>刷新统计
-                        </button>
+                        <div class="d-flex gap-2 align-items-center">
+                            <!-- 导入进度显示 -->
+                            <div id="importProgress" style="display: none;" class="me-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-spinner fa-spin me-1"></i>
+                                    <span id="importProgressText">准备中...</span>
+                                    <span class="badge bg-primary ms-1" id="importProgressBadge">0/0</span>
+                                </small>
+                            </div>
+                            <!-- 导入所有邮件按钮 -->
+                            <button class="btn btn-outline-success btn-sm" id="importAllEmailsBtn" onclick="startImportAllEmails()">
+                                <i class="fas fa-download me-1"></i>导入所有邮件
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" onclick="refreshAccountStats()">
+                                <i class="fas fa-sync me-1"></i>刷新统计
+                            </button>
+                        </div>
                     </div>
                     
                     {% if accounts %}
@@ -1640,6 +1654,153 @@ document.addEventListener('DOMContentLoaded', function() {
     // 每30秒刷新一次调度状态
     setInterval(loadScheduleStatus, 30000);
 });
+
+// ========================================
+// 批量导入所有邮件功能
+// ========================================
+
+let importTaskId = null;
+let importProgressInterval = null;
+
+// 启动批量导入
+function startImportAllEmails() {
+    if (!confirm('确定要批量导入所有已配置邮箱的180天内的邮件吗？\n\n注意：\n1. 此操作不会进行AI分析，仅导入原始邮件\n2. 系统会自动去重，避免重复导入\n3. 导入过程可能需要较长时间，请耐心等待\n4. 用户附件也会一并导入')) {
+        return;
+    }
+    
+    const importBtn = document.getElementById('importAllEmailsBtn');
+    const progressDiv = document.getElementById('importProgress');
+    
+    // 禁用按钮
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>启动中...';
+    
+    // 发送导入请求
+    fetch('/api/user/import-all-emails', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            days_back: 180  // 默认导入180天
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            importTaskId = data.task_id;
+            
+            // 显示进度条
+            progressDiv.style.display = 'block';
+            
+            // 开始轮询进度
+            importProgressInterval = setInterval(checkImportProgress, 2000);
+            
+            showAlert('success', data.message);
+        } else {
+            showAlert('danger', data.message || '启动导入任务失败');
+            
+            // 恢复按钮
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<i class="fas fa-download me-1"></i>导入所有邮件';
+        }
+    })
+    .catch(error => {
+        console.error('启动导入任务失败:', error);
+        showAlert('danger', '启动导入任务失败: ' + error.message);
+        
+        // 恢复按钮
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-download me-1"></i>导入所有邮件';
+    });
+}
+
+// 检查导入进度
+function checkImportProgress() {
+    if (!importTaskId) {
+        return;
+    }
+    
+    fetch(`/api/user/import-progress/${importTaskId}`)
+    .then(response => response.json())
+    .then(data => {
+        const progressText = document.getElementById('importProgressText');
+        const progressBadge = document.getElementById('importProgressBadge');
+        const importBtn = document.getElementById('importAllEmailsBtn');
+        const progressDiv = document.getElementById('importProgress');
+        
+        if (data.state === 'PENDING') {
+            progressText.textContent = data.status || '任务排队中...';
+            progressBadge.textContent = '0%';
+        } else if (data.state === 'PROGRESS') {
+            progressText.textContent = data.status || '正在处理...';
+            const percentage = Math.round((data.current / data.total) * 100);
+            progressBadge.textContent = `${percentage}% (${data.imported}/${data.total_found})`;
+            
+            // 显示当前处理的账户
+            if (data.current_account) {
+                progressText.textContent = data.status;
+            }
+        } else if (data.state === 'SUCCESS') {
+            // 任务完成
+            progressText.innerHTML = '<i class="fas fa-check-circle text-success me-1"></i>' + data.status;
+            progressBadge.textContent = `${data.imported} 封`;
+            progressBadge.className = 'badge bg-success ms-1';
+            
+            // 停止轮询
+            clearInterval(importProgressInterval);
+            importProgressInterval = null;
+            importTaskId = null;
+            
+            // 恢复按钮
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<i class="fas fa-download me-1"></i>导入所有邮件';
+            
+            // 显示完成消息
+            showAlert('success', `批量导入完成！共导入 ${data.imported} 封邮件，发现 ${data.total_found} 封，去重 ${data.duplicates_removed} 封。`);
+            
+            // 5秒后隐藏进度条
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+            }, 5000);
+            
+            // 刷新统计
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else if (data.state === 'FAILURE') {
+            // 任务失败
+            progressText.innerHTML = '<i class="fas fa-times-circle text-danger me-1"></i>' + data.status;
+            progressBadge.textContent = '失败';
+            progressBadge.className = 'badge bg-danger ms-1';
+            
+            // 停止轮询
+            clearInterval(importProgressInterval);
+            importProgressInterval = null;
+            importTaskId = null;
+            
+            // 恢复按钮
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<i class="fas fa-download me-1"></i>导入所有邮件';
+            
+            showAlert('danger', '批量导入失败: ' + data.status);
+        }
+    })
+    .catch(error => {
+        console.error('查询导入进度失败:', error);
+        
+        // 停止轮询
+        if (importProgressInterval) {
+            clearInterval(importProgressInterval);
+            importProgressInterval = null;
+        }
+        
+        // 恢复按钮
+        const importBtn = document.getElementById('importAllEmailsBtn');
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-download me-1"></i>导入所有邮件';
+    });
+}
 
 </script>
 {% endblock %}

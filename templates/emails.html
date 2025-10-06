@@ -121,7 +121,7 @@
     <div class="col-12">
         <div class="card border-0 shadow-sm">
             <div class="card-body">
-                <form class="row g-3" method="GET">
+                <form class="row g-3" method="GET" id="filterForm">
                     <div class="col-md-4">
                         <label for="search" class="form-label">搜索邮件</label>
                         <div class="input-group">
@@ -169,10 +169,85 @@
                             <option value="0" {{ 'selected' if request.args.get('processed') == '0' }}>未处理</option>
                         </select>
                     </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-filter me-1"></i>筛选
+                    <div class="col-md-1">
+                        <label for="perPage" class="form-label">每页</label>
+                        <select class="form-select" id="perPage" name="per_page">
+                            <option value="10" {{ 'selected' if request.args.get('per_page', '20') == '10' }}>10</option>
+                            <option value="20" {{ 'selected' if request.args.get('per_page', '20') == '20' }}>20</option>
+                            <option value="30" {{ 'selected' if request.args.get('per_page', '20') == '30' }}>30</option>
+                            <option value="50" {{ 'selected' if request.args.get('per_page', '20') == '50' }}>50</option>
+                            <option value="100" {{ 'selected' if request.args.get('per_page', '20') == '100' }}>100</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-primary w-100" id="advancedFilterToggle">
+                            <i class="fas fa-sliders-h"></i>
                         </button>
+                    </div>
+                    
+                    <!-- 高级筛选面板（默认隐藏） -->
+                    <div class="col-12" id="advancedFilterPanel" style="display: none;">
+                        <div class="card bg-light mt-3">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">
+                                    <i class="fas fa-filter me-2"></i>高级筛选选项
+                                </h6>
+                                
+                                <!-- 邮件账号筛选 -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label fw-bold mb-0">邮件账号筛选</label>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-outline-primary" onclick="selectAllAccounts()">
+                                                <i class="fas fa-check-square me-1"></i>全选
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="deselectAllAccounts()">
+                                                <i class="fas fa-square me-1"></i>取消选择
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2" id="accountCheckboxes">
+                                        <!-- 这里将通过JavaScript动态加载用户的邮件账号 -->
+                                        <div class="col-12 text-muted">
+                                            <small><i class="fas fa-spinner fa-spin me-1"></i>加载账号列表中...</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 时间筛选 -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="timeRange" class="form-label fw-bold">时间筛选</label>
+                                        <select class="form-select" id="timeRange" name="time_range">
+                                            <option value="">所有</option>
+                                            <option value="today" {{ 'selected' if request.args.get('time_range') == 'today' }}>今天</option>
+                                            <option value="3days" {{ 'selected' if request.args.get('time_range') == '3days' }}>最近三天</option>
+                                            <option value="week" {{ 'selected' if request.args.get('time_range') == 'week' }}>最近一周</option>
+                                            <option value="month" {{ 'selected' if request.args.get('time_range') == 'month' }}>最近一个月</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- 附件筛选 -->
+                                    <div class="col-md-6">
+                                        <label for="hasAttachment" class="form-label fw-bold">附件筛选</label>
+                                        <select class="form-select" id="hasAttachment" name="has_attachment">
+                                            <option value="">所有</option>
+                                            <option value="1" {{ 'selected' if request.args.get('has_attachment') == '1' }}>带附件</option>
+                                            <option value="0" {{ 'selected' if request.args.get('has_attachment') == '0' }}>无附件</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="resetAdvancedFilters()">
+                                        <i class="fas fa-undo me-1"></i>重置
+                                    </button>
+                                    <small class="text-muted ms-auto align-self-center">
+                                        <i class="fas fa-info-circle me-1"></i>筛选条件改变时自动刷新
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -348,11 +423,22 @@
         
         <!-- 分页 -->
         {% if pagination and pagination.pages > 1 %}
+        {% set query_params = [] %}
+        {% if request.args.get('search') %}{% set _ = query_params.append('search=' + request.args.get('search')) %}{% endif %}
+        {% if request.args.get('category') %}{% set _ = query_params.append('category=' + request.args.get('category')) %}{% endif %}
+        {% if request.args.get('provider') %}{% set _ = query_params.append('provider=' + request.args.get('provider')) %}{% endif %}
+        {% if request.args.get('processed') %}{% set _ = query_params.append('processed=' + request.args.get('processed')) %}{% endif %}
+        {% if request.args.get('per_page') %}{% set _ = query_params.append('per_page=' + request.args.get('per_page')) %}{% endif %}
+        {% if request.args.get('accounts') %}{% set _ = query_params.append('accounts=' + request.args.get('accounts')) %}{% endif %}
+        {% if request.args.get('time_range') %}{% set _ = query_params.append('time_range=' + request.args.get('time_range')) %}{% endif %}
+        {% if request.args.get('has_attachment') %}{% set _ = query_params.append('has_attachment=' + request.args.get('has_attachment')) %}{% endif %}
+        {% set query_string = '&' + query_params|join('&') if query_params else '' %}
+        
         <nav aria-label="邮件列表分页">
             <ul class="pagination justify-content-center">
                 {% if pagination.page > 1 %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ pagination.page - 1 }}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}{% if request.args.get('category') %}&category={{ request.args.get('category') }}{% endif %}{% if request.args.get('provider') %}&provider={{ request.args.get('provider') }}{% endif %}{% if request.args.get('processed') %}&processed={{ request.args.get('processed') }}{% endif %}">
+                    <a class="page-link" href="?page={{ pagination.page - 1 }}{{ query_string }}">
                         <i class="fas fa-chevron-left"></i>
                     </a>
                 </li>
@@ -365,7 +451,7 @@
                     </li>
                     {% elif page_num <= 3 or page_num > pagination.pages - 3 or (page_num >= pagination.page - 2 and page_num <= pagination.page + 2) %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_num }}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}{% if request.args.get('category') %}&category={{ request.args.get('category') }}{% endif %}{% if request.args.get('provider') %}&provider={{ request.args.get('provider') }}{% endif %}{% if request.args.get('processed') %}&processed={{ request.args.get('processed') }}{% endif %}">{{ page_num }}</a>
+                        <a class="page-link" href="?page={{ page_num }}{{ query_string }}">{{ page_num }}</a>
                     </li>
                     {% elif page_num == 4 or page_num == pagination.pages - 3 %}
                     <li class="page-item disabled">
@@ -376,7 +462,7 @@
                 
                 {% if pagination.page < pagination.pages %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ pagination.page + 1 }}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}{% if request.args.get('category') %}&category={{ request.args.get('category') }}{% endif %}{% if request.args.get('provider') %}&provider={{ request.args.get('provider') }}{% endif %}{% if request.args.get('processed') %}&processed={{ request.args.get('processed') }}{% endif %}">
+                    <a class="page-link" href="?page={{ pagination.page + 1 }}{{ query_string }}">
                         <i class="fas fa-chevron-right"></i>
                     </a>
                 </li>
@@ -484,6 +570,258 @@ let currentEmailId = null;
 // 全屏状态变量
 let isFullscreen = false;
 
+// ==================== 高级筛选功能 ====================
+
+/**
+ * 切换高级筛选面板的显示/隐藏
+ */
+function toggleAdvancedFilter() {
+    const panel = document.getElementById('advancedFilterPanel');
+    const button = document.getElementById('advancedFilterToggle');
+    
+    if (panel.style.display === 'none' || panel.style.display === '') {
+        panel.style.display = 'block';
+        button.innerHTML = '<i class="fas fa-sliders-h me-1"></i>收起高级筛选';
+        
+        // 首次展开时加载邮件账号列表
+        if (!panel.dataset.loaded) {
+            loadEmailAccounts();
+            panel.dataset.loaded = 'true';
+        }
+    } else {
+        panel.style.display = 'none';
+        button.innerHTML = '<i class="fas fa-sliders-h me-1"></i>高级筛选';
+    }
+}
+
+/**
+ * 加载用户的邮件账号列表
+ */
+async function loadEmailAccounts() {
+    const container = document.getElementById('accountCheckboxes');
+    container.innerHTML = '<div class="col-12 text-muted"><small><i class="fas fa-spinner fa-spin me-1"></i>加载账号列表中...</small></div>';
+    
+    try {
+        const response = await fetch('/api/user/email-accounts');
+        const data = await response.json();
+        
+        if (data.success && data.accounts && data.accounts.length > 0) {
+            // 获取URL中已选中的账号
+            const urlParams = new URLSearchParams(window.location.search);
+            const selectedAccounts = urlParams.get('accounts') ? urlParams.get('accounts').split(',') : [];
+            
+            // 判断是否应该默认全选（URL中没有accounts参数时默认全选）
+            const shouldSelectAll = selectedAccounts.length === 0;
+            
+            // 生成账号复选框，每行5列
+            container.innerHTML = data.accounts.map((account, index) => `
+                <div class="col-md-2_4 col-sm-4 col-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" 
+                               name="accounts" 
+                               value="${account.email}" 
+                               id="account-${index}"
+                               ${shouldSelectAll || selectedAccounts.includes(account.email) ? 'checked' : ''}>
+                        <label class="form-check-label text-truncate" for="account-${index}" title="${account.email}">
+                            ${account.email}
+                        </label>
+                    </div>
+                </div>
+            `).join('');
+            
+            // 添加自定义样式使每行5列
+            if (!document.getElementById('accountCheckboxStyle')) {
+                const style = document.createElement('style');
+                style.id = 'accountCheckboxStyle';
+                style.textContent = '.col-md-2_4 { flex: 0 0 20%; max-width: 20%; } @media (max-width: 768px) { .col-md-2_4 { flex: 0 0 50%; max-width: 50%; } }';
+                document.head.appendChild(style);
+            }
+            
+            // 为每个复选框添加change事件监听器
+            document.querySelectorAll('input[name="accounts"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    autoSubmitFilter();
+                });
+            });
+        } else {
+            container.innerHTML = '<div class="col-12 text-muted"><small>未找到邮件账号</small></div>';
+        }
+    } catch (error) {
+        console.error('加载邮件账号失败:', error);
+        container.innerHTML = '<div class="col-12 text-danger"><small><i class="fas fa-exclamation-triangle me-1"></i>加载失败，请重试</small></div>';
+    }
+}
+
+/**
+ * 全选所有邮件账号
+ */
+function selectAllAccounts() {
+    document.querySelectorAll('input[name="accounts"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    // 自动提交表单
+    autoSubmitFilter();
+}
+
+/**
+ * 取消选择所有邮件账号
+ */
+function deselectAllAccounts() {
+    document.querySelectorAll('input[name="accounts"]').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    // 自动提交表单
+    autoSubmitFilter();
+}
+
+/**
+ * 自动提交筛选表单
+ */
+function autoSubmitFilter() {
+    // 使用setTimeout避免过于频繁的提交
+    if (window.autoSubmitTimeout) {
+        clearTimeout(window.autoSubmitTimeout);
+    }
+    
+    window.autoSubmitTimeout = setTimeout(() => {
+        const form = document.getElementById('filterForm');
+        if (form) {
+            // 构建筛选参数并提交
+            buildFilterParamsAndSubmit();
+        }
+    }, 300); // 300ms延迟，避免用户快速操作时多次提交
+}
+
+/**
+ * 构建筛选参数并提交表单
+ */
+function buildFilterParamsAndSubmit() {
+    const form = document.getElementById('filterForm');
+    const formData = new FormData(form);
+    
+    // 获取所有账号复选框
+    const allAccountCheckboxes = document.querySelectorAll('input[name="accounts"]');
+    
+    // 获取所有选中的账号
+    const selectedAccounts = Array.from(document.querySelectorAll('input[name="accounts"]:checked'))
+        .map(cb => cb.value);
+    
+    // 构建URL参数
+    const params = new URLSearchParams();
+    
+    // 添加基础筛选参数
+    const search = document.getElementById('search').value;
+    const category = document.getElementById('category').value;
+    const provider = document.getElementById('provider').value;
+    const processed = document.getElementById('processed').value;
+    const perPage = document.getElementById('perPage').value;
+    
+    if (search) params.append('search', search);
+    if (category) params.append('category', category);
+    if (provider) params.append('provider', provider);
+    if (processed) params.append('processed', processed);
+    if (perPage && perPage !== '20') params.append('per_page', perPage); // 只有非默认值才添加参数
+    
+    // 添加高级筛选参数 - 账号筛选
+    // 关键修复：区分"未加载账号"和"明确选择0个账号"
+    if (allAccountCheckboxes.length > 0) {
+        // 账号已加载，需要传递选择结果
+        if (selectedAccounts.length > 0) {
+            // 有选中的账号
+            params.append('accounts', selectedAccounts.join(','));
+        } else {
+            // 明确选择了0个账号，传递特殊标记
+            params.append('accounts', 'none');
+        }
+    }
+    // 如果账号未加载（allAccountCheckboxes.length === 0），不传递accounts参数
+    
+    const timeRange = document.getElementById('timeRange').value;
+    const hasAttachment = document.getElementById('hasAttachment').value;
+    
+    if (timeRange) params.append('time_range', timeRange);
+    if (hasAttachment) params.append('has_attachment', hasAttachment);
+    
+    // 跳转到筛选结果页面
+    window.location.href = '/emails?' + params.toString();
+}
+
+/**
+ * 重置高级筛选
+ */
+function resetAdvancedFilters() {
+    // 重置为全选所有账号（默认状态）
+    selectAllAccounts();
+    
+    // 重置时间范围
+    document.getElementById('timeRange').value = '';
+    
+    // 重置附件筛选
+    document.getElementById('hasAttachment').value = '';
+}
+
+// 页面加载时绑定高级筛选按钮事件
+document.addEventListener('DOMContentLoaded', function() {
+    const advancedFilterToggle = document.getElementById('advancedFilterToggle');
+    if (advancedFilterToggle) {
+        advancedFilterToggle.addEventListener('click', toggleAdvancedFilter);
+    }
+    
+    // 如果URL中包含高级筛选参数，自动展开面板
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('accounts') || urlParams.get('time_range') || urlParams.get('has_attachment')) {
+        toggleAdvancedFilter();
+    }
+    
+    // 为基础筛选的下拉框添加自动提交事件
+    const categorySelect = document.getElementById('category');
+    const providerSelect = document.getElementById('provider');
+    const processedSelect = document.getElementById('processed');
+    const perPageSelect = document.getElementById('perPage');
+    
+    if (categorySelect) {
+        categorySelect.addEventListener('change', autoSubmitFilter);
+    }
+    if (providerSelect) {
+        providerSelect.addEventListener('change', autoSubmitFilter);
+    }
+    if (processedSelect) {
+        processedSelect.addEventListener('change', autoSubmitFilter);
+    }
+    if (perPageSelect) {
+        // 改变每页显示数量时，重置到第一页
+        perPageSelect.addEventListener('change', function() {
+            // 先清除page参数（重置到第1页）
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.delete('page');
+            autoSubmitFilter();
+        });
+    }
+    
+    // 为高级筛选的下拉框添加自动提交事件
+    const timeRangeSelect = document.getElementById('timeRange');
+    const hasAttachmentSelect = document.getElementById('hasAttachment');
+    
+    if (timeRangeSelect) {
+        timeRangeSelect.addEventListener('change', autoSubmitFilter);
+    }
+    if (hasAttachmentSelect) {
+        hasAttachmentSelect.addEventListener('change', autoSubmitFilter);
+    }
+    
+    // 搜索框使用防抖处理（用户停止输入500ms后自动提交）
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                autoSubmitFilter();
+            }, 500); // 500ms延迟
+        });
+    }
+});
+
 // 性能优化组件实例
 let emailVirtualList = null;
 let smartPagination = null;
@@ -499,11 +837,19 @@ const PERFORMANCE_CONFIG = {
 };
 
 // 列表页：单条展开/收起（与首页一致）
-function toggleEmailExpand(headerElement) {
+// 明确声明为全局函数，确保在动态内容中可访问
+window.toggleEmailExpand = function(headerElement) {
     const emailItem = headerElement.closest('.email-item-compact');
     const contentElement = emailItem.querySelector('.email-content-expanded');
     const expandIcon = emailItem.querySelector('.expand-icon');
-    if (!contentElement || !expandIcon) return;
+    if (!contentElement || !expandIcon) {
+        console.warn('toggleEmailExpand: 找不到必要的元素', {
+            emailItem: !!emailItem,
+            contentElement: !!contentElement,
+            expandIcon: !!expandIcon
+        });
+        return;
+    }
     if (emailItem.classList.contains('expanded')) {
         emailItem.classList.remove('expanded');
         contentElement.style.display = 'none';
@@ -513,7 +859,10 @@ function toggleEmailExpand(headerElement) {
         contentElement.style.display = 'block';
         expandIcon.style.transform = 'rotate(90deg)';
     }
-}
+};
+
+// 向后兼容：同时提供全局函数引用
+const toggleEmailExpand = window.toggleEmailExpand;
 
 // 查看邮件详情
 function viewEmailDetail(emailId) {
@@ -548,7 +897,14 @@ function viewEmailDetail(emailId) {
             }
             return response.json();
         })
-        .then(email => {
+        .then(data => {
+            // 检查API响应格式
+            if (!data.success || !data.email) {
+                throw new Error(data.error || '获取邮件详情失败');
+            }
+            
+            const email = data.email;
+            
             // 设置当前正在编辑的邮件（用于修改分类功能）
             currentEditingEmail = email;
             
@@ -579,8 +935,32 @@ function viewEmailDetail(emailId) {
 function displayEmailDetail(email) {
     const contentDiv = document.getElementById('emailDetailContent');
     
+    // 调试日志：检查email对象
+    console.log('displayEmailDetail - email对象:', email);
+    console.log('displayEmailDetail - recipients字段:', email.recipients, '类型:', typeof email.recipients);
+    
     // 格式化收件人列表
-    const recipients = Array.isArray(email.recipients) ? email.recipients.join(', ') : email.recipients || '无';
+    let recipients = '无';
+    if (email.recipients) {
+        if (Array.isArray(email.recipients)) {
+            recipients = email.recipients.join(', ');
+        } else if (typeof email.recipients === 'string') {
+            // 如果是字符串，尝试解析JSON
+            try {
+                const parsed = JSON.parse(email.recipients);
+                if (Array.isArray(parsed)) {
+                    recipients = parsed.join(', ');
+                } else {
+                    recipients = email.recipients;
+                }
+            } catch (e) {
+                // 不是JSON，直接使用字符串
+                recipients = email.recipients;
+            }
+        } else {
+            recipients = String(email.recipients);
+        }
+    }
     
     // 格式化日期
     const emailDate = new Date(email.date).toLocaleString('zh-CN', {

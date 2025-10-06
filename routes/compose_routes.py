@@ -375,7 +375,11 @@ def get_user_email(user_id, email_id):
                 WHERE id = ? AND user_id = ?
             ''', (email_id, user_id))
             
-            return cursor.fetchone()
+            row = cursor.fetchone()
+            if row:
+                # 将Row对象转换为字典，确保可以使用.get()方法
+                return dict(row)
+            return None
     except Exception as e:
         logger.error(f"获取用户邮件失败: {e}")
         return None
@@ -390,7 +394,10 @@ def get_user_draft(user_id, draft_id):
                 WHERE id = ? AND user_id = ?
             ''', (draft_id, user_id))
             
-            return cursor.fetchone()
+            row = cursor.fetchone()
+            if row:
+                return dict(row)
+            return None
     except Exception as e:
         logger.error(f"获取用户草稿失败: {e}")
         return None
@@ -563,6 +570,76 @@ def cleanup_after_send(user_id, upload_session):
             
     except Exception as e:
         logger.warning(f"清理发送后数据失败: {e}")
+
+@compose_bp.route('/api/compose/reply-data/<int:email_id>')
+@auth_service.require_login
+def get_reply_data(email_id):
+    """获取回复邮件所需的数据"""
+    try:
+        user = auth_service.get_current_user()
+        
+        logger.info(f"用户 {user['id']} 请求获取邮件 {email_id} 的回复数据")
+        
+        # 获取原始邮件
+        email = get_user_email(user['id'], email_id)
+        if not email:
+            logger.warning(f"邮件 {email_id} 不存在或用户 {user['id']} 无权限访问")
+            return jsonify({
+                'success': False,
+                'message': '邮件不存在或无权限访问'
+            }), 404
+        
+        logger.info(f"成功获取邮件 {email_id}，发件人: {email.get('sender', 'N/A')}")
+        
+        # 从sender字段中提取邮箱地址和名称
+        # sender格式通常为: "Name <email@example.com>" 或 "email@example.com"
+        sender = email.get('sender', '')
+        import re
+        
+        # 尝试解析 "Name <email>" 格式
+        match = re.match(r'^(.+?)\s*<(.+?)>$', sender)
+        if match:
+            sender_name = match.group(1).strip().strip('"')
+            sender_email = match.group(2).strip()
+        else:
+            # 如果没有匹配，假设整个字符串就是邮箱
+            sender_email = sender.strip()
+            sender_name = sender_email.split('@')[0] if '@' in sender_email else sender_email
+        
+        # 准备回复数据
+        reply_data = {
+            'original_email_id': email_id,
+            'original_subject': email.get('subject', ''),
+            'original_sender': sender_email,
+            'original_sender_name': sender_name,
+            'original_date': email.get('date', ''),
+            'original_body': email.get('body', ''),
+            'reply_to': sender_email,
+            'subject': f"Re: {email.get('subject', '')}" if not email.get('subject', '').startswith('Re:') else email.get('subject', ''),
+            'quoted_body': f'''
+<br><br>
+<div style="border-left: 3px solid #ccc; padding-left: 10px; margin-left: 5px; color: #666;">
+    <p><strong>原始邮件</strong></p>
+    <p><strong>发件人:</strong> {sender_name} &lt;{sender_email}&gt;</p>
+    <p><strong>日期:</strong> {email.get('date', '')}</p>
+    <p><strong>主题:</strong> {email.get('subject', '')}</p>
+    <hr style="border: none; border-top: 1px solid #ddd; margin: 10px 0;">
+    {email.get('body', '')}
+</div>
+'''
+        }
+        
+        return jsonify({
+            'success': True,
+            'reply_data': reply_data
+        })
+        
+    except Exception as e:
+        logger.error(f"获取回复数据失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'获取回复数据失败: {str(e)}'
+        }), 500
 
 @compose_bp.route('/api/compose/sender-accounts')
 @auth_service.require_login

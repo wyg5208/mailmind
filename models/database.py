@@ -1734,8 +1734,9 @@ class Database:
     
     def get_user_emails_filtered(self, user_id: int, page: int = 1, per_page: int = 20, 
                                 search: str = '', category: str = '', provider: str = '', 
-                                processed: str = '') -> Tuple[List[Dict], int]:
-        """分页获取用户邮件列表（带筛选）- 支持Redis缓存"""
+                                processed: str = '', accounts: str = '', time_range: str = '', 
+                                has_attachment: str = '') -> Tuple[List[Dict], int]:
+        """分页获取用户邮件列表（带筛选）- 支持Redis缓存和高级筛选"""
         cache = get_cache_service()
         
         # 生成缓存键
@@ -1747,6 +1748,9 @@ class Database:
                 'category': category,
                 'provider': provider,
                 'processed': processed,
+                'accounts': accounts,
+                'time_range': time_range,
+                'has_attachment': has_attachment,
                 'page': page,
                 'per_page': per_page
             }
@@ -1786,6 +1790,49 @@ class Database:
                 if processed:
                     where_conditions.append('processed = ?')
                     params.append(int(processed))
+                
+                # 高级筛选：邮件账号筛选
+                if accounts:
+                    if accounts == 'none':
+                        # 特殊值 'none' 表示用户明确选择了0个账号
+                        # 添加一个永远为False的条件，确保不返回任何邮件
+                        where_conditions.append('1 = 0')
+                    else:
+                        # 正常的账号列表
+                        account_list = [acc.strip() for acc in accounts.split(',') if acc.strip()]
+                        if account_list:
+                            placeholders = ','.join(['?' for _ in account_list])
+                            where_conditions.append(f'account_email IN ({placeholders})')
+                            params.extend(account_list)
+                
+                # 高级筛选：时间范围筛选
+                if time_range:
+                    now = datetime.now()
+                    if time_range == 'today':
+                        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                        where_conditions.append('date >= ?')
+                        params.append(start_date.strftime('%Y-%m-%d %H:%M:%S'))
+                    elif time_range == '3days':
+                        start_date = now - timedelta(days=3)
+                        where_conditions.append('date >= ?')
+                        params.append(start_date.strftime('%Y-%m-%d %H:%M:%S'))
+                    elif time_range == 'week':
+                        start_date = now - timedelta(weeks=1)
+                        where_conditions.append('date >= ?')
+                        params.append(start_date.strftime('%Y-%m-%d %H:%M:%S'))
+                    elif time_range == 'month':
+                        start_date = now - timedelta(days=30)
+                        where_conditions.append('date >= ?')
+                        params.append(start_date.strftime('%Y-%m-%d %H:%M:%S'))
+                
+                # 高级筛选：附件筛选
+                if has_attachment:
+                    if has_attachment == '1':
+                        # 有附件：attachments字段不为空且不是空字符串
+                        where_conditions.append("(attachments IS NOT NULL AND attachments != '' AND attachments != '[]')")
+                    elif has_attachment == '0':
+                        # 无附件：attachments字段为空或是空字符串
+                        where_conditions.append("(attachments IS NULL OR attachments = '' OR attachments = '[]')")
                 
                 where_clause = ' AND '.join(where_conditions)
                 
@@ -2139,8 +2186,8 @@ class Database:
                     deleted_cache_count = cache.delete_pattern(deleted_pattern)
                     logger.debug(f"清空邮件后清除已删除邮件缓存: {deleted_cache_count} 个键")
                     
-                    # 清除用户统计缓存
-                    cache.invalidate_user_cache(user_id, 'clear_all_emails')
+                    # 清除用户统计缓存（使用'all'以清除所有相关缓存，包括recent_activity）
+                    cache.invalidate_user_cache(user_id, 'all')
                 
                 return True, actual_deleted
                 

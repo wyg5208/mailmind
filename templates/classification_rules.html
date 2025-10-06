@@ -208,7 +208,7 @@
         .back-button {
             position: fixed;
             top: 12px;
-            left: 12px;
+            right: 12px;
             z-index: 1000;
             font-size: 0.85rem;
             padding: 6px 12px;
@@ -337,6 +337,37 @@
         h5, h6 {
             font-size: 1rem;
             margin-bottom: 8px;
+        }
+        
+        /* 规则列表标题特别缩小 */
+        .rules-container h5 {
+            font-size: 0.75rem;
+        }
+        
+        /* 减小规则卡片内所有标题的字号 */
+        .rule-item h6,
+        .rule-item .fw-bold,
+        .suggestion-item h6,
+        .suggestion-item .fw-bold {
+            font-size: 0.8rem !important;
+        }
+        
+        /* 减小规则卡片标题（覆盖Bootstrap的fs-5） */
+        .rule-item strong.fs-5,
+        .rule-item .fs-5 {
+            font-size: 0.9rem !important;
+        }
+        
+        /* 减小智能建议标题字号 */
+        .suggestion-header h6,
+        .suggestion-body strong,
+        .suggestion-body p {
+            font-size: 0.8rem !important;
+        }
+        
+        /* 减小智能建议代码块字号 */
+        .suggestion-body code {
+            font-size: 0.75rem !important;
         }
         
         .mb-3 {

@@ -19,6 +19,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
     <!-- 异步任务进度条样式 -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/async_progress.css') }}">
+    <!-- AI助手样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_assistant.css') }}">
     
     {% block extra_css %}{% endblock %}
     {% block extra_head %}{% endblock %}
@@ -199,6 +201,9 @@
     
     <!-- 异步任务监控JavaScript -->
     <script src="{{ url_for('static', filename='js/async_task_monitor.js') }}"></script>
+    
+    <!-- AI助手JavaScript -->
+    <script src="{{ url_for('static', filename='js/ai_assistant.js') }}"></script>
     
     <!-- 通用JavaScript -->
     <script>

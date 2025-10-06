@@ -8,6 +8,7 @@ AI邮件简报系统 - 主应用
 import os
 import threading
 import time
+import json
 from datetime import datetime, timedelta
 import logging
 import logging.handlers
@@ -28,6 +29,8 @@ from routes.compose_routes import register_compose_routes
 from routes.email_reply_routes import register_reply_routes
 # 邮件分类功能路由
 from routes.classification_routes import register_classification_routes
+# AI助手功能路由
+from routes.ai_assistant_routes import register_ai_assistant_routes
 from services.cache_service import cache_service
 from services.cache_manager import cache_manager
 from services.auto_cache_cleaner import auto_cache_cleaner
@@ -330,13 +333,23 @@ def emails():
     try:
         user = auth_service.get_current_user()
         page = request.args.get('page', 1, type=int)
-        per_page = 20
         
-        # 获取筛选参数
+        # 获取每页显示数量，支持用户自定义（10、20、30、50、100）
+        per_page = request.args.get('per_page', 20, type=int)
+        # 限制在有效范围内
+        if per_page not in [10, 20, 30, 50, 100]:
+            per_page = 20
+        
+        # 获取基础筛选参数
         search = request.args.get('search', '').strip()
         category = request.args.get('category', '')
         provider = request.args.get('provider', '')
         processed = request.args.get('processed', '')
+        
+        # 获取高级筛选参数
+        accounts = request.args.get('accounts', '').strip()
+        time_range = request.args.get('time_range', '').strip()
+        has_attachment = request.args.get('has_attachment', '').strip()
         
         # 获取用户邮件（带筛选）
         all_emails, total = db.get_user_emails_filtered(
@@ -346,7 +359,10 @@ def emails():
             search=search,
             category=category,
             provider=provider,
-            processed=processed
+            processed=processed,
+            accounts=accounts,
+            time_range=time_range,
+            has_attachment=has_attachment
         )
         
         pagination = {
@@ -796,6 +812,71 @@ def api_stats():
         logger.error(f"获取统计信息时出错: {e}")
         return jsonify({'error': '获取统计信息失败'}), 500
 
+@app.route('/api/emails')
+@auth_service.require_login
+def get_emails_list():
+    """获取用户邮件列表API"""
+    try:
+        user = auth_service.get_current_user()
+        
+        # 获取查询参数
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        category = request.args.get('category', None)
+        
+        # 构建查询条件
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 基础查询
+            sql = """
+                SELECT id, subject, sender, recipients, date, body, summary, ai_summary,
+                       processed, account_email, provider, importance, category, 
+                       attachments, deleted, created_at
+                FROM emails 
+                WHERE user_id = ? AND deleted = 0
+            """
+            params = [user['id']]
+            
+            # 添加分类过滤
+            if category:
+                sql += " AND category = ?"
+                params.append(category)
+            
+            # 排序和分页
+            sql += " ORDER BY date DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+            
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            
+            # 转换为字典列表
+            emails = []
+            for row in rows:
+                email = dict(row)
+                # 解析JSON字段
+                try:
+                    if email.get('recipients'):
+                        email['recipients'] = json.loads(email['recipients'])
+                    if email.get('attachments'):
+                        email['attachments'] = json.loads(email['attachments'])
+                except:
+                    pass
+                emails.append(email)
+            
+            return jsonify({
+                'success': True,
+                'emails': emails,
+                'total': len(emails)
+            })
+    
+    except Exception as e:
+        logger.error(f"获取邮件列表失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/emails/<int:email_id>')
 @auth_service.require_login
 def get_email_detail(email_id):
@@ -805,17 +886,20 @@ def get_email_detail(email_id):
         email_detail = db.get_email_by_id(email_id)
         
         if not email_detail:
-            return jsonify({'error': '邮件不存在'}), 404
+            return jsonify({'success': False, 'error': '邮件不存在'}), 404
         
         # 检查邮件是否属于当前用户
         if email_detail.get('user_id') != user['id']:
-            return jsonify({'error': '邮件不存在或您没有权限'}), 404
+            return jsonify({'success': False, 'error': '邮件不存在或您没有权限'}), 404
         
-        return jsonify(email_detail)
+        return jsonify({
+            'success': True,
+            'email': email_detail
+        })
         
     except Exception as e:
         logger.error(f"获取邮件详情时出错: {e}")
-        return jsonify({'error': '获取邮件详情失败'}), 500
+        return jsonify({'success': False, 'error': '获取邮件详情失败'}), 500
 
 @app.route('/api/emails/<int:email_id>/classification', methods=['PUT'])
 @auth_service.require_login
@@ -2366,6 +2450,9 @@ register_reply_routes(app)
 # 注册邮件分类路由
 register_classification_routes(app)
 
+# 注册AI助手路由
+register_ai_assistant_routes(app)
+
 @app.route('/sent')
 @auth_service.require_login
 def sent_emails():
@@ -2548,6 +2635,121 @@ def get_sent_emails():
         return jsonify({
             'success': False,
             'message': f'获取已发送邮件失败: {str(e)}'
+        }), 500
+
+@app.route('/api/user/import-all-emails', methods=['POST'])
+@auth_service.require_login
+def import_all_emails():
+    """批量导入所有配置账户的历史邮件（异步）"""
+    try:
+        user = auth_service.get_current_user()
+        user_id = user['id']
+        
+        # 获取参数（默认180天）
+        data = request.get_json() or {}
+        days_back = data.get('days_back', 180)
+        
+        # 验证参数
+        if not isinstance(days_back, int) or days_back < 1 or days_back > 365:
+            return jsonify({
+                'success': False,
+                'message': '天数参数无效，必须在1-365之间'
+            }), 400
+        
+        logger.info(f"用户 {user_id} 请求批量导入 {days_back} 天内的邮件")
+        
+        # 提交Celery异步任务
+        from services.async_tasks import import_all_emails_async
+        task = import_all_emails_async.delay(user_id, days_back)
+        
+        logger.info(f"批量导入任务已提交: {task.id}")
+        
+        return jsonify({
+            'success': True,
+            'task_id': task.id,
+            'message': f'批量导入任务已启动，正在导入 {days_back} 天内的邮件...'
+        })
+        
+    except Exception as e:
+        logger.error(f"启动批量导入任务失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'启动任务失败: {str(e)}'
+        }), 500
+
+@app.route('/api/user/import-progress/<task_id>')
+@auth_service.require_login
+def get_import_progress(task_id):
+    """查询批量导入任务进度"""
+    try:
+        from services.async_tasks import import_all_emails_async
+        from celery.result import AsyncResult
+        
+        task = AsyncResult(task_id, app=import_all_emails_async.app)
+        
+        if task.state == 'PENDING':
+            # 任务还在队列中
+            response = {
+                'state': 'PENDING',
+                'current': 0,
+                'total': 100,
+                'imported': 0,
+                'total_found': 0,
+                'current_account': '',
+                'status': '任务正在排队中...'
+            }
+        elif task.state == 'PROGRESS':
+            # 任务正在执行
+            response = {
+                'state': 'PROGRESS',
+                'current': task.info.get('current', 0),
+                'total': task.info.get('total', 100),
+                'imported': task.info.get('imported', 0),
+                'total_found': task.info.get('total_found', 0),
+                'current_account': task.info.get('current_account', ''),
+                'status': task.info.get('status', '正在处理...')
+            }
+        elif task.state == 'SUCCESS':
+            # 任务完成
+            result = task.result
+            response = {
+                'state': 'SUCCESS',
+                'current': 100,
+                'total': 100,
+                'imported': result.get('imported', 0),
+                'total_found': result.get('total_found', 0),
+                'duplicates_removed': result.get('duplicates_removed', 0),
+                'accounts_processed': result.get('accounts_processed', 0),
+                'status': f'导入完成！共导入 {result.get("imported", 0)} 封邮件'
+            }
+        elif task.state == 'FAILURE':
+            # 任务失败
+            response = {
+                'state': 'FAILURE',
+                'current': 0,
+                'total': 100,
+                'imported': 0,
+                'total_found': 0,
+                'status': f'导入失败: {str(task.info)}'
+            }
+        else:
+            # 未知状态
+            response = {
+                'state': task.state,
+                'current': 0,
+                'total': 100,
+                'imported': 0,
+                'total_found': 0,
+                'status': f'任务状态: {task.state}'
+            }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"查询导入进度失败: {e}")
+        return jsonify({
+            'state': 'ERROR',
+            'status': f'查询失败: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
